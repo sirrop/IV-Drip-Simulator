@@ -100,7 +100,21 @@
     .clamp-details { padding-top:6px; }
   }
   .compare { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  @media (max-width:560px){ .compare { grid-template-columns:1fr; } }
+  /* スマホでも2つを横に並べて同時に見られるよう、比較専用の小型レイアウトにする */
+  @media (max-width:560px){
+    .compare { gap:10px; }
+    .compare .chamber { width:auto; }
+    .compare .chamber .tube { width:52px; height:150px; }
+    .compare .chamber .drop { width:12px; height:17px; margin-left:-6px; }
+    .compare .drop.falling { animation-name:fall-sm; }
+    .compare .chamber .cap { font-size:11px; }
+    .compare .readouts { grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; }
+    .compare .readout { padding:8px 4px; }
+    .compare .readout .v { font-size:17px; }
+    .compare .readout .l { font-size:11px; }
+  }
+  @keyframes fall-sm { 0% { transform:translateY(0); opacity:0; } 8% { opacity:1; }
+                       85% { opacity:1; } 100% { transform:translateY(105px); opacity:0; } }
   .vs { text-align:center; font-weight:800; color:var(--warn); margin:2px 0 10px; }
   .quiz-q { border-top:1px solid var(--line); padding:14px 0; }
   .quiz-q:first-of-type { border-top:none; }
