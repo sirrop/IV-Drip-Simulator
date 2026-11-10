@@ -81,6 +81,7 @@
     <button role="tab" aria-selected="true" data-tab="sim">シミュレーター</button>
     <button role="tab" aria-selected="false" data-tab="compare">2画面比較</button>
     <button role="tab" aria-selected="false" data-tab="quiz">クイズ（全10問）</button>
+    <button role="tab" aria-selected="false" data-tab="game">ゲーム（速度当て）</button>
   </div>
 
   <!-- ============ シミュレーター ============ -->
@@ -165,6 +166,38 @@
       <p class="muted">全10問を一覧で解けます。選択肢をタップすると正誤と解説がその場で出ます。式は「滴/分 ＝ mL/h × 滴下係数 ÷ 60」です。</p>
       <div id="quiz-list"></div>
       <p class="disclaimer">このアプリは学習用のシミュレーターです。実際の投与速度は必ず処方・指示と、輸液ポンプまたは滴下筒の実測で確認してください。表示される数値は計算上の目安です。</p>
+    </div>
+  </section>
+
+  <!-- ============ ゲーム（速度当て） ============ -->
+  <section class="panel" id="tab-game">
+    <div class="card">
+      <div class="chamber-wrap">
+        <div class="chamber">
+          <div class="tube">
+            <div class="drop" id="game-drop"></div>
+            <div class="fluid"></div>
+          </div>
+          <div class="cap">滴下筒（イメージ）</div>
+        </div>
+        <div style="flex:1; min-width:240px;">
+          <h2>ゲーム — この滴下速度は？</h2>
+          <p>滴下係数 <strong>20滴/mL（一般用）</strong> で点滴が落ちています。リズムを見て、輸液速度（mL/h）を当ててください。全5問です。</p>
+          <p class="muted">コツ：現場と同じく「15秒数えて4倍」が使えます。「15秒カウント」を押すと15秒間だけ測れます（その間の滴数は終わってから表示されます）。</p>
+          <p><span id="game-round" class="muted">まだ始まっていません</span>　<strong id="game-timer"></strong></p>
+          <div class="seg">
+            <button id="game-start">ゲームスタート</button>
+            <button id="game-count" disabled>15秒カウント</button>
+          </div>
+          <p id="game-status" style="font-weight:700;">「ゲームスタート」を押すと滴下が始まります。</p>
+          <div class="choices" id="game-choices"></div>
+          <p class="explain" id="game-explain"></p>
+          <div class="seg">
+            <button id="game-next" style="display:none;">次の問題へ</button>
+          </div>
+          <p class="muted">スコア：<span id="game-score">0</span> / 5問</p>
+        </div>
+      </div>
     </div>
   </section>
 </main>
@@ -286,6 +319,122 @@ QUIZ.forEach(function(item, i){
   });
   div.appendChild(box);
   list.appendChild(div);
+});
+
+/* ---- ゲーム（速度当て）: 20滴/mL固定、5問1セット ---- */
+var GAME_RATES = [40, 50, 60, 80, 100, 120, 125, 150, 200];
+var GAME_FACTOR = 20, GAME_ROUNDS = 5;
+var gRate = null, gRound = 0, gScore = 0, gPhase = "idle";
+var gCount = 0, gTimerId = null, gLeft = 0;
+var gDrop = document.getElementById("game-drop");
+var gChoices = document.getElementById("game-choices");
+var gExplain = document.getElementById("game-explain");
+var gStatus = document.getElementById("game-status");
+var gNext = document.getElementById("game-next");
+var gCountBtn = document.getElementById("game-count");
+
+gDrop.addEventListener("animationiteration", function(){ if (gPhase === "counting") gCount++; });
+
+function gRestartDrop(interval){
+  gDrop.classList.remove("falling");
+  void gDrop.offsetWidth;
+  gDrop.style.animationDuration = Math.max(interval, 0.25) + "s";
+  gDrop.classList.add("falling");
+}
+function gShuffle(a){
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+function gNewRound(){
+  gRound++;
+  var r;
+  do { r = GAME_RATES[Math.floor(Math.random() * GAME_RATES.length)]; } while (r === gRate);
+  gRate = r;
+  var c = calc(gRate, GAME_FACTOR);
+  gRestartDrop(c.interval);
+  document.getElementById("game-round").textContent = "第" + gRound + "問 / " + GAME_ROUNDS + "問";
+  document.getElementById("game-timer").textContent = "";
+  gStatus.textContent = "滴下中… リズムをよく見てください。";
+  gExplain.className = "explain"; gExplain.textContent = "";
+  gNext.style.display = "none";
+  gCountBtn.disabled = false;
+  gPhase = "playing";
+  var pool = gShuffle(GAME_RATES.filter(function(x){ return x !== gRate; })).slice(0, 3);
+  var opts = gShuffle(pool.concat([gRate]));
+  gChoices.innerHTML = "";
+  opts.forEach(function(v){
+    var b = document.createElement("button");
+    b.textContent = v + " mL/h";
+    b.addEventListener("click", function(){ gAnswer(v, b); });
+    gChoices.appendChild(b);
+  });
+}
+function gAnswer(v, btn){
+  if (gPhase !== "playing" && gPhase !== "counting") return;
+  if (gTimerId) { clearInterval(gTimerId); gTimerId = null; }
+  document.getElementById("game-timer").textContent = "";
+  gCountBtn.disabled = true;
+  var c = calc(gRate, GAME_FACTOR);
+  var ok = (v === gRate);
+  if (ok) gScore++;
+  gChoices.querySelectorAll("button").forEach(function(x){
+    x.disabled = true;
+    if (x.textContent === gRate + " mL/h") x.classList.add("correct");
+  });
+  if (!ok) btn.classList.add("wrong");
+  gExplain.textContent = (ok ? "正解！ " : "不正解。") +
+    "正解は " + gRate + " mL/h。" + gRate + " × 20 ÷ 60 ＝ " + fmt(c.dpm, 1) + " 滴/分、1滴の間隔は約 " +
+    fmt(c.interval, 1) + " 秒、15秒では約 " + Math.round(c.count15) + " 滴でした。";
+  gExplain.className = "explain show";
+  document.getElementById("game-score").textContent = gScore;
+  gStatus.textContent = ok ? "その感覚、正解です。" : "答え合わせをしました。リズムと数字を結びつけて覚えましょう。";
+  gNext.textContent = (gRound >= GAME_ROUNDS) ? "結果を見る" : "次の問題へ";
+  gNext.style.display = "";
+  gPhase = "answered";
+}
+gCountBtn.addEventListener("click", function(){
+  if (gPhase !== "playing") return;
+  gPhase = "counting"; gCount = 0; gLeft = 15;
+  gRestartDrop(calc(gRate, GAME_FACTOR).interval);
+  gCountBtn.disabled = true;
+  document.getElementById("game-timer").textContent = "カウント中… 残り " + gLeft + " 秒";
+  gTimerId = setInterval(function(){
+    gLeft--;
+    if (gLeft <= 0) {
+      clearInterval(gTimerId); gTimerId = null;
+      document.getElementById("game-timer").textContent = "";
+      if (gPhase === "counting") {
+        gPhase = "playing";
+        gStatus.textContent = "15秒で " + gCount + " 滴落ちました（×4 ＝ 約 " + (gCount * 4) + " 滴/分）。速度はいくつでしょう？";
+      }
+    } else {
+      document.getElementById("game-timer").textContent = "カウント中… 残り " + gLeft + " 秒";
+    }
+  }, 1000);
+});
+document.getElementById("game-start").addEventListener("click", function(){
+  gRound = 0; gScore = 0;
+  document.getElementById("game-score").textContent = "0";
+  this.textContent = "最初からやり直す";
+  gNewRound();
+});
+gNext.addEventListener("click", function(){
+  if (gRound >= GAME_ROUNDS) {
+    gDrop.classList.remove("falling");
+    gChoices.innerHTML = "";
+    gNext.style.display = "none";
+    gExplain.className = "explain"; gExplain.textContent = "";
+    document.getElementById("game-round").textContent = "終了";
+    gStatus.textContent = "結果：" + gScore + " / " + GAME_ROUNDS + " 問正解。" +
+      (gScore === 5 ? "完璧です。そのリズム感、現場でも武器になります。" :
+       gScore >= 3 ? "いい感覚です。外した問題のリズムをシミュレーターで見直してみてください。" :
+                     "まずはシミュレーターで 40 / 60 / 100 mL/h のリズムを見比べてから再挑戦を。");
+    gPhase = "finished";
+  } else {
+    gNewRound();
+  }
 });
 
 renderSim();
