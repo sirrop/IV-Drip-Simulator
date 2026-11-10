@@ -217,7 +217,7 @@
         </div>
         <div style="flex:1; min-width:240px;">
           <h2>タップ測定 — リズムから速度を逆算</h2>
-          <p>実際の滴下筒を見ながら、<strong>滴が落ちるたびにボタン</strong>をタップしてください。タップ間隔から滴下速度を推定し、隣の滴下筒がその推定リズムで落ちるので、見た目でも確認できます。</p>
+          <p>実際の滴下筒を見ながら、<strong>滴が落ちるたびにボタン</strong>をタップしてください。タップ間隔から滴下速度を推定し、隣の滴下筒が「最後のタップを1滴目」としてその推定リズムで落ちるので、見た目でも確認できます。</p>
           <p><strong>滴下係数</strong></p>
           <div class="seg" id="tap-factor-seg">
             <button data-factor="10" aria-pressed="false">10滴/mL</button>
@@ -508,7 +508,7 @@ gNext.addEventListener("click", function(){
 /* ---- タップ測定：タップ間隔（中央値）から速度を逆算 ---- */
 var tapFactor = 20, tapTimes = [], tapStarted = false;
 var tapDripper = createDripper(document.getElementById("tap-tube"), null);
-function renderTap(){
+function renderTap(anchor){
   var n = tapTimes.length;
   document.getElementById("tap-count").textContent = n + " 回";
   if (n < 3) {
@@ -531,8 +531,8 @@ function renderTap(){
   document.getElementById("tap-dpm").textContent = fmt(dpm, 1);
   document.getElementById("tap-rate").textContent = fmt(rateEst, 0);
   document.getElementById("tap-note").textContent =
-    "直近 " + ivs.length + " 回分の間隔の中央値から計算しています。隣の滴下筒は推定リズムで滴下中です。見比べてみてください。";
-  if (!tapStarted) { tapDripper.start(med); tapStarted = true; }
+    "直近 " + ivs.length + " 回分の間隔の中央値から計算しています。隣の滴下筒は、最後のタップを1滴目として推定リズムで滴下中です。見比べてみてください。";
+  if (anchor) { tapDripper.start(med); tapStarted = true; }
   else { tapDripper.update(med); }
 }
 document.getElementById("tap-btn").addEventListener("click", function(){
@@ -540,7 +540,7 @@ document.getElementById("tap-btn").addEventListener("click", function(){
   if (tapTimes.length && (now - tapTimes[tapTimes.length - 1]) > 6000) tapTimes = [];
   tapTimes.push(now);
   if (tapTimes.length > 30) tapTimes.shift();
-  renderTap();
+  renderTap(true);
 });
 document.getElementById("tap-factor-seg").addEventListener("click", function(e){
   var b = e.target.closest("button"); if (!b) return;
