@@ -114,6 +114,7 @@
     <button role="tab" aria-selected="false" data-tab="compare">2画面比較</button>
     <button role="tab" aria-selected="false" data-tab="quiz">クイズ（全10問）</button>
     <button role="tab" aria-selected="false" data-tab="game">ゲーム（速度当て）</button>
+    <button role="tab" aria-selected="false" data-tab="clamp">クレンメ調整</button>
     <button role="tab" aria-selected="false" data-tab="tap">タップ測定</button>
   </div>
 
@@ -270,6 +271,43 @@
             <button id="game-next" style="display:none;">次の問題へ</button>
           </div>
           <p class="muted">スコア：<span id="game-score">0</span> / 5問</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ クレンメ調整ゲーム ============ -->
+  <section class="panel" id="tab-clamp">
+    <div class="card">
+      <div class="chamber-wrap">
+        <div class="chamber">
+          <div class="tube" id="clamp-tube">
+            <div class="fluid"></div>
+          </div>
+          <div class="cap">滴下筒（イメージ）</div>
+        </div>
+        <div style="flex:1; min-width:240px;">
+          <h2>クレンメ調整 — 目標の速度に合わせる</h2>
+          <p>スライダーがクレンメです。滴の速さを見ながら、目標の輸液速度に合わせて「これで決定」を押してください（滴下係数 20滴/mL、全3問）。</p>
+          <p class="muted">ポイント：<strong>クレンメの位置と速度の関係は線形ではなく、しかも問題ごとに毎回変わります</strong>。速度の数値表示もありません。現場と同じく、滴を数えて（15秒カウントが使えます）感覚で合わせてください。決定後に、その回のクレンメの特性グラフが表示されます。</p>
+          <p><span id="clamp-round" class="muted">まだ始まっていません</span></p>
+          <p>目標：<strong id="clamp-target" style="font-size:20px;">— mL/h</strong></p>
+          <div class="seg">
+            <button id="clamp-start">ゲームスタート</button>
+          </div>
+          <p><strong>クレンメ</strong> <span class="muted">（左端：全閉　右端：全開）</span></p>
+          <input type="range" id="clamp-slider" min="0" max="1000" value="500" disabled aria-label="クレンメ（スライダー）">
+          <div class="seg">
+            <button id="clamp-count" disabled>15秒カウント</button>
+            <button id="clamp-decide" disabled>これで決定</button>
+          </div>
+          <p class="muted" id="clamp-count-result"></p>
+          <p id="clamp-feedback" style="font-weight:700;"></p>
+          <canvas id="clamp-graph" width="300" height="180" style="display:none; max-width:100%; background:#fff; border:1px solid var(--line); border-radius:10px;"></canvas>
+          <div class="seg">
+            <button id="clamp-next" style="display:none;">次の問題へ</button>
+          </div>
+          <p class="muted">スコア：<span id="clamp-score">0</span> / 3問（誤差10%以内で成功）</p>
         </div>
       </div>
     </div>
@@ -604,6 +642,151 @@ gNext.addEventListener("click", function(){
   } else {
     gNewRound();
   }
+});
+
+/* ---- クレンメ調整ゲーム：位置→速度の対応は毎回ランダムな非線形カーブ ---- */
+var clampCurve = null, clampTarget = 0, clampRound = 0, clampScore = 0;
+var clampCounting = false, clampCount = 0, clampDecided = false, clampRunning = false, clampToken = 0;
+var clampDripper = createDripper(document.getElementById("clamp-tube"), function(){ if (clampCounting) clampCount++; });
+var CLAMP_TARGETS = [40, 60, 80, 100, 120, 150];
+
+function genClampCurve(){
+  var max = 200 + Math.floor(Math.random() * 5) * 25; /* 200〜300 mL/h */
+  var us = [];
+  for (var i = 0; i < 4; i++) us.push(Math.random());
+  us.sort(function(a, b){ return a - b; });
+  var ys = [0];
+  us.forEach(function(u){ ys.push(Math.round(max * (0.12 + 0.83 * u))); });
+  ys.push(max);
+  for (var j = 1; j < ys.length; j++) { if (ys[j] <= ys[j - 1]) ys[j] = ys[j - 1] + 5; }
+  return { xs: [0, 20, 40, 60, 80, 100], ys: ys, max: ys[ys.length - 1] };
+}
+function clampCurveRate(c, x){
+  for (var i = 1; i < c.xs.length; i++) {
+    if (x <= c.xs[i]) {
+      var x0 = c.xs[i - 1], x1 = c.xs[i], y0 = c.ys[i - 1], y1 = c.ys[i];
+      return y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+    }
+  }
+  return c.max;
+}
+function clampPos(){ return +document.getElementById("clamp-slider").value / 10; }
+function clampRateNow(){ return clampCurve ? clampCurveRate(clampCurve, clampPos()) : 0; }
+function clampApply(){
+  var r = clampRateNow();
+  if (r >= 3) {
+    var iv = calc(r, 20).interval;
+    if (!clampRunning) { clampDripper.start(iv); clampRunning = true; }
+    else { clampDripper.update(iv); }
+  } else {
+    clampDripper.stop(); clampDripper.clear(); clampRunning = false;
+  }
+}
+function clampNext(){
+  clampRound++;
+  clampToken++;
+  clampCurve = genClampCurve();
+  var pool = CLAMP_TARGETS.filter(function(t){ return t < clampCurve.max * 0.85; });
+  clampTarget = pool[Math.floor(Math.random() * pool.length)];
+  clampDecided = false; clampCounting = false; clampCount = 0;
+  var slider = document.getElementById("clamp-slider");
+  slider.value = 250 + Math.floor(Math.random() * 500);
+  slider.disabled = false;
+  document.getElementById("clamp-round").textContent = "第" + clampRound + "問 / 全3問";
+  document.getElementById("clamp-target").textContent = clampTarget + " mL/h";
+  document.getElementById("clamp-count-result").textContent = "";
+  document.getElementById("clamp-feedback").textContent = "";
+  document.getElementById("clamp-graph").style.display = "none";
+  document.getElementById("clamp-next").style.display = "none";
+  document.getElementById("clamp-count").disabled = false;
+  document.getElementById("clamp-decide").disabled = false;
+  clampApply();
+}
+function drawClampGraph(pos, actual){
+  var cv = document.getElementById("clamp-graph");
+  cv.style.display = "block";
+  var ctx = cv.getContext("2d");
+  var W = cv.width, H = cv.height, padL = 36, padB = 22, padT = 12, padR = 10;
+  var maxY = clampCurve.max;
+  function X(x){ return padL + (W - padL - padR) * x / 100; }
+  function Y(y){ return H - padB - (H - padB - padT) * y / maxY; }
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = "#dbe4ec";
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, H - padB); ctx.lineTo(W - padR, H - padB); ctx.stroke();
+  ctx.strokeStyle = "#b3541e"; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(padL, Y(clampTarget)); ctx.lineTo(W - padR, Y(clampTarget)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#b3541e"; ctx.font = "11px sans-serif";
+  ctx.fillText("目標 " + clampTarget, W - padR - 56, Y(clampTarget) - 4);
+  ctx.strokeStyle = "#0e7c7b"; ctx.lineWidth = 2; ctx.beginPath();
+  for (var x = 0; x <= 100; x += 2) {
+    var y = clampCurveRate(clampCurve, x);
+    if (x === 0) ctx.moveTo(X(x), Y(y)); else ctx.lineTo(X(x), Y(y));
+  }
+  ctx.stroke(); ctx.lineWidth = 1;
+  ctx.fillStyle = "#1a2b3c";
+  ctx.beginPath(); ctx.arc(X(pos), Y(actual), 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#5a6b7a";
+  ctx.fillText(maxY + "", 4, padT + 4);
+  ctx.fillText("mL/h", 4, padT + 16);
+  ctx.fillText("0", padL - 3, H - 6);
+  ctx.fillText("クレンメ位置 →", W - padR - 72, H - 6);
+  ctx.fillText("あなたの位置", Math.min(X(pos) + 8, W - 76), Y(actual) - 6);
+}
+document.getElementById("clamp-slider").addEventListener("input", function(){
+  if (clampCurve && !clampDecided && !clampCounting) clampApply();
+});
+document.getElementById("clamp-start").addEventListener("click", function(){
+  clampRound = 0; clampScore = 0;
+  document.getElementById("clamp-score").textContent = "0";
+  this.textContent = "最初からやり直す";
+  clampNext();
+});
+document.getElementById("clamp-next").addEventListener("click", clampNext);
+document.getElementById("clamp-count").addEventListener("click", function(){
+  if (!clampCurve || clampDecided || clampCounting) return;
+  var r = clampRateNow();
+  var res = document.getElementById("clamp-count-result");
+  if (r < 3) { res.textContent = "滴が落ちていません。もう少し開けてください。"; return; }
+  clampCounting = true; clampCount = 0;
+  var token = clampToken;
+  var btn = this;
+  btn.disabled = true;
+  document.getElementById("clamp-slider").disabled = true;
+  document.getElementById("clamp-decide").disabled = true;
+  res.textContent = "カウント中…（15秒）";
+  clampDripper.start(calc(r, 20).interval); clampRunning = true;
+  setTimeout(function(){
+    if (token !== clampToken) return;
+    clampCounting = false;
+    btn.disabled = false;
+    if (!clampDecided) {
+      document.getElementById("clamp-slider").disabled = false;
+      document.getElementById("clamp-decide").disabled = false;
+    }
+    res.textContent = "15秒で " + clampCount + " 滴 → 約 " + (clampCount * 4) + " 滴/分 でした。";
+  }, 15000);
+});
+document.getElementById("clamp-decide").addEventListener("click", function(){
+  if (!clampCurve || clampDecided) return;
+  clampDecided = true;
+  var actual = clampRateNow();
+  var pos = clampPos();
+  var err = Math.abs(actual - clampTarget) / clampTarget * 100;
+  var verdict;
+  if (err <= 10) { verdict = "成功！目標の範囲内です。"; clampScore++; }
+  else if (err <= 20) { verdict = "おしい！あと少しでした。"; }
+  else if (actual < clampTarget) { verdict = "まだ遅いです。もっと開く方向でした。"; }
+  else { verdict = "速すぎます。もっと閉める方向でした。"; }
+  document.getElementById("clamp-score").textContent = clampScore;
+  document.getElementById("clamp-feedback").innerHTML =
+    verdict + "<br>実際の速度は " + fmt(actual, 0) + " mL/h（目標 " + clampTarget + " mL/h、誤差 " + fmt(err, 0) + "%）、クレンメ位置は " + fmt(pos, 0) + "% でした。" +
+    (clampRound >= 3 ? "<br>全3問が終わりました。スコアは " + clampScore + " / 3 です。" : "");
+  drawClampGraph(pos, actual);
+  document.getElementById("clamp-slider").disabled = true;
+  document.getElementById("clamp-count").disabled = true;
+  this.disabled = true;
+  if (clampRound < 3) document.getElementById("clamp-next").style.display = "inline-block";
 });
 
 /* ---- 計算（量と時間）：総輸液量 ÷ 時間 → 速度・滴下数 ---- */
