@@ -47,7 +47,7 @@
   .chamber .drop { position:absolute; left:50%; top:6px; width:14px; height:20px; margin-left:-7px;
                    background:#3d9ec4; border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
                    transform:translateY(0); opacity:0; }
-  .chamber .drop.falling { animation-name:fall; animation-timing-function:linear; animation-iteration-count:infinite; }
+  .chamber .drop.falling { animation:fall 0.45s linear forwards; }
   @keyframes fall { 0% { transform:translateY(0); opacity:0; } 8% { opacity:1; }
                     85% { opacity:1; } 100% { transform:translateY(150px); opacity:0; } }
   .chamber .cap { font-size:12px; color:var(--muted); text-align:center; margin-top:8px; }
@@ -89,8 +89,7 @@
     <div class="card">
       <div class="chamber-wrap">
         <div class="chamber">
-          <div class="tube">
-            <div class="drop falling" id="sim-drop"></div>
+          <div class="tube" id="sim-tube">
             <div class="fluid"></div>
           </div>
           <div class="cap">滴下筒（イメージ）</div>
@@ -135,7 +134,7 @@
       <input type="range" id="cmp-rate" min="10" max="300" step="5" value="100" aria-label="比較する輸液速度（mL/h）">
       <div class="compare" style="margin-top:14px;">
         <div>
-          <div class="chamber"><div class="tube"><div class="drop falling" id="cmp-drop-a"></div><div class="fluid"></div></div>
+          <div class="chamber"><div class="tube" id="cmp-tube-a"><div class="fluid"></div></div>
           <div class="cap">A：20滴/mL（一般用）</div></div>
           <div class="readouts">
             <div class="readout"><div class="v" id="cmp-a-dpm">33.3</div><div class="l">滴/分</div></div>
@@ -143,7 +142,7 @@
           </div>
         </div>
         <div>
-          <div class="chamber"><div class="tube"><div class="drop falling" id="cmp-drop-b"></div><div class="fluid"></div></div>
+          <div class="chamber"><div class="tube" id="cmp-tube-b"><div class="fluid"></div></div>
           <div class="cap">B：60滴/mL（微量・小児用）</div></div>
           <div class="readouts">
             <div class="readout"><div class="v" id="cmp-b-dpm">100</div><div class="l">滴/分</div></div>
@@ -174,8 +173,7 @@
     <div class="card">
       <div class="chamber-wrap">
         <div class="chamber">
-          <div class="tube">
-            <div class="drop" id="game-drop"></div>
+          <div class="tube" id="game-tube">
             <div class="fluid"></div>
           </div>
           <div class="cap">滴下筒（イメージ）</div>
@@ -212,6 +210,26 @@ function calc(rate, factor){
 }
 function fmt(n, d){ return (Math.round(n * Math.pow(10, d)) / Math.pow(10, d)).toString(); }
 
+/* ---- 滴下ドライバ：滴の落下速度は常に一定（0.45秒）、変わるのは落下の間隔だけ ---- */
+function createDripper(tube, onDrop){
+  var timer = null, interval = 1, running = false;
+  function spawn(){
+    if (!running) return;
+    var d = document.createElement("div");
+    d.className = "drop falling";
+    d.addEventListener("animationend", function(){ d.remove(); });
+    tube.appendChild(d);
+    if (onDrop) onDrop();
+    timer = setTimeout(spawn, Math.max(interval, 0.05) * 1000);
+  }
+  return {
+    start: function(iv){ interval = iv; running = true; if (timer) clearTimeout(timer); spawn(); },
+    update: function(iv){ interval = iv; },
+    stop: function(){ running = false; if (timer) { clearTimeout(timer); timer = null; } },
+    clear: function(){ tube.querySelectorAll(".drop").forEach(function(d){ d.remove(); }); }
+  };
+}
+
 /* ---- タブ ---- */
 document.querySelectorAll(".tabs button").forEach(function(btn){
   btn.addEventListener("click", function(){
@@ -224,7 +242,7 @@ document.querySelectorAll(".tabs button").forEach(function(btn){
 
 /* ---- シミュレーター ---- */
 var factor = 20, rate = 100;
-var simDrop = document.getElementById("sim-drop");
+var simDripper = createDripper(document.getElementById("sim-tube"), null);
 function renderSim(){
   var r = calc(rate, factor);
   document.getElementById("rate-val").textContent = rate;
@@ -234,7 +252,7 @@ function renderSim(){
   document.getElementById("formula-work").textContent =
     rate + " × " + factor + " ÷ 60 ＝ " + fmt(r.dpm, 1) + " 滴/分　→　60 ÷ " + fmt(r.dpm, 1) +
     " ≒ " + fmt(r.interval, 1) + "秒に1滴";
-  simDrop.style.animationDuration = Math.max(r.interval, 0.25) + "s";
+  simDripper.update(r.interval);
 }
 document.getElementById("factor-seg").addEventListener("click", function(e){
   var b = e.target.closest("button"); if(!b) return;
@@ -249,6 +267,8 @@ document.getElementById("preset-seg").addEventListener("click", function(e){
 });
 
 /* ---- 2画面比較 ---- */
+var cmpDripperA = createDripper(document.getElementById("cmp-tube-a"), null);
+var cmpDripperB = createDripper(document.getElementById("cmp-tube-b"), null);
 function renderCmp(){
   var r = +document.getElementById("cmp-rate").value;
   document.getElementById("cmp-rate-val").textContent = r;
@@ -257,8 +277,8 @@ function renderCmp(){
   document.getElementById("cmp-a-int").textContent = fmt(a.interval, 1) + "秒";
   document.getElementById("cmp-b-dpm").textContent = fmt(b.dpm, 1);
   document.getElementById("cmp-b-int").textContent = fmt(b.interval, 1) + "秒";
-  document.getElementById("cmp-drop-a").style.animationDuration = Math.max(a.interval, 0.25) + "s";
-  document.getElementById("cmp-drop-b").style.animationDuration = Math.max(b.interval, 0.25) + "s";
+  cmpDripperA.update(a.interval);
+  cmpDripperB.update(b.interval);
 }
 document.getElementById("cmp-rate").addEventListener("input", renderCmp);
 
@@ -326,20 +346,16 @@ var GAME_RATES = [40, 50, 60, 80, 100, 120, 125, 150, 200];
 var GAME_FACTOR = 20, GAME_ROUNDS = 5;
 var gRate = null, gRound = 0, gScore = 0, gPhase = "idle";
 var gCount = 0, gTimerId = null, gLeft = 0;
-var gDrop = document.getElementById("game-drop");
+var gDripper = createDripper(document.getElementById("game-tube"), function(){ if (gPhase === "counting") gCount++; });
 var gChoices = document.getElementById("game-choices");
 var gExplain = document.getElementById("game-explain");
 var gStatus = document.getElementById("game-status");
 var gNext = document.getElementById("game-next");
 var gCountBtn = document.getElementById("game-count");
 
-gDrop.addEventListener("animationiteration", function(){ if (gPhase === "counting") gCount++; });
-
 function gRestartDrop(interval){
-  gDrop.classList.remove("falling");
-  void gDrop.offsetWidth;
-  gDrop.style.animationDuration = Math.max(interval, 0.25) + "s";
-  gDrop.classList.add("falling");
+  gDripper.clear();
+  gDripper.start(interval);
 }
 function gShuffle(a){
   for (var i = a.length - 1; i > 0; i--) {
@@ -422,7 +438,8 @@ document.getElementById("game-start").addEventListener("click", function(){
 });
 gNext.addEventListener("click", function(){
   if (gRound >= GAME_ROUNDS) {
-    gDrop.classList.remove("falling");
+    gDripper.stop();
+    gDripper.clear();
     gChoices.innerHTML = "";
     gNext.style.display = "none";
     gExplain.className = "explain"; gExplain.textContent = "";
@@ -439,6 +456,9 @@ gNext.addEventListener("click", function(){
 
 renderSim();
 renderCmp();
+simDripper.start(calc(rate, factor).interval);
+cmpDripperA.start(calc(100, 20).interval);
+cmpDripperB.start(calc(100, 60).interval);
 </script>
 </body>
 </html>
