@@ -66,6 +66,9 @@
   .explain { display:none; font-size:13px; color:var(--muted); margin-top:8px; }
   .explain.show { display:block; }
   #score { font-weight:800; }
+  .tap-btn { width:100%; padding:24px 10px; margin:6px 0 4px; font-size:19px; font-weight:800; border-radius:14px;
+             border:2px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; }
+  .tap-btn:active { background:var(--accent); color:#fff; }
   .disclaimer { font-size:12px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; margin-top:8px; }
   footer { text-align:center; color:var(--muted); font-size:12px; padding:0 16px 32px; }
 </style>
@@ -82,6 +85,7 @@
     <button role="tab" aria-selected="false" data-tab="compare">2画面比較</button>
     <button role="tab" aria-selected="false" data-tab="quiz">クイズ（全10問）</button>
     <button role="tab" aria-selected="false" data-tab="game">ゲーム（速度当て）</button>
+    <button role="tab" aria-selected="false" data-tab="tap">タップ測定</button>
   </div>
 
   <!-- ============ シミュレーター ============ -->
@@ -194,6 +198,41 @@
             <button id="game-next" style="display:none;">次の問題へ</button>
           </div>
           <p class="muted">スコア：<span id="game-score">0</span> / 5問</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ タップ測定 ============ -->
+  <section class="panel" id="tab-tap">
+    <div class="card">
+      <div class="chamber-wrap">
+        <div class="chamber">
+          <div class="tube" id="tap-tube">
+            <div class="fluid"></div>
+          </div>
+          <div class="cap">推定リズム（アニメーション）</div>
+        </div>
+        <div style="flex:1; min-width:240px;">
+          <h2>タップ測定 — リズムから速度を逆算</h2>
+          <p>実際の滴下筒を見ながら、<strong>滴が落ちるたびにボタン</strong>をタップしてください。タップ間隔から滴下速度を推定し、隣の滴下筒がその推定リズムで落ちるので、見た目でも確認できます。</p>
+          <p><strong>滴下係数</strong></p>
+          <div class="seg" id="tap-factor-seg">
+            <button data-factor="10" aria-pressed="false">10滴/mL</button>
+            <button data-factor="15" aria-pressed="false">15滴/mL</button>
+            <button data-factor="20" aria-pressed="true">20滴/mL</button>
+            <button data-factor="60" aria-pressed="false">60滴/mL</button>
+          </div>
+          <button class="tap-btn" id="tap-btn">滴に合わせてタップ</button>
+          <div class="readouts">
+            <div class="readout"><div class="v" id="tap-count">0 回</div><div class="l">タップ回数</div></div>
+            <div class="readout"><div class="v" id="tap-interval">—</div><div class="l">1滴の間隔（中央値）</div></div>
+            <div class="readout"><div class="v" id="tap-dpm">—</div><div class="l">滴/分</div></div>
+            <div class="readout"><div class="v" id="tap-rate">—</div><div class="l">推定の輸液速度（mL/h）</div></div>
+          </div>
+          <p class="muted" id="tap-note">滴が落ちるたびにボタンをタップしてください。3回目から推定が出ます。</p>
+          <div class="seg"><button id="tap-reset">リセット</button></div>
+          <p class="muted">6秒以上間隔が空くと、自動で最初から数え直します。間隔は外れ値に強い中央値で計算します。</p>
         </div>
       </div>
     </div>
@@ -454,8 +493,58 @@ gNext.addEventListener("click", function(){
   }
 });
 
+/* ---- タップ測定：タップ間隔（中央値）から速度を逆算 ---- */
+var tapFactor = 20, tapTimes = [], tapStarted = false;
+var tapDripper = createDripper(document.getElementById("tap-tube"), null);
+function renderTap(){
+  var n = tapTimes.length;
+  document.getElementById("tap-count").textContent = n + " 回";
+  if (n < 3) {
+    document.getElementById("tap-interval").textContent = "—";
+    document.getElementById("tap-dpm").textContent = "—";
+    document.getElementById("tap-rate").textContent = "—";
+    document.getElementById("tap-note").textContent = n === 0
+      ? "滴が落ちるたびにボタンをタップしてください。3回目から推定が出ます。"
+      : "あと " + (3 - n) + " 回タップすると推定が出ます。";
+    return;
+  }
+  var ivs = [];
+  for (var i = 1; i < n; i++) ivs.push((tapTimes[i] - tapTimes[i - 1]) / 1000);
+  var sorted = ivs.slice().sort(function(a, b){ return a - b; });
+  var mid = Math.floor(sorted.length / 2);
+  var med = (sorted.length % 2 === 1) ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  var dpm = 60 / med;
+  var rateEst = dpm * 60 / tapFactor;
+  document.getElementById("tap-interval").textContent = fmt(med, 2) + "秒";
+  document.getElementById("tap-dpm").textContent = fmt(dpm, 1);
+  document.getElementById("tap-rate").textContent = fmt(rateEst, 0);
+  document.getElementById("tap-note").textContent =
+    "直近 " + ivs.length + " 回分の間隔の中央値から計算しています。隣の滴下筒は推定リズムで滴下中です。見比べてみてください。";
+  if (!tapStarted) { tapDripper.start(med); tapStarted = true; }
+  else { tapDripper.update(med); }
+}
+document.getElementById("tap-btn").addEventListener("click", function(){
+  var now = performance.now();
+  if (tapTimes.length && (now - tapTimes[tapTimes.length - 1]) > 6000) tapTimes = [];
+  tapTimes.push(now);
+  if (tapTimes.length > 30) tapTimes.shift();
+  renderTap();
+});
+document.getElementById("tap-factor-seg").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if (!b) return;
+  tapFactor = +b.dataset.factor;
+  document.querySelectorAll("#tap-factor-seg button").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+  renderTap();
+});
+document.getElementById("tap-reset").addEventListener("click", function(){
+  tapTimes = []; tapStarted = false;
+  tapDripper.stop(); tapDripper.clear();
+  renderTap();
+});
+
 renderSim();
 renderCmp();
+renderTap();
 simDripper.start(calc(rate, factor).interval);
 cmpDripperA.start(calc(100, 20).interval);
 cmpDripperB.start(calc(100, 60).interval);
