@@ -9,6 +9,11 @@
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <meta name="theme-color" content="#1a2b3c">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="IV Drip">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://sirrop.github.io/IV-Drip-Simulator/">
 <meta property="og:site_name" content="IV Drip Simulator">
@@ -721,6 +726,13 @@ document.getElementById("tap-reset").addEventListener("click", function(){
     else { note.textContent = appUrl; }
   });
 })();
+
+/* ---- PWA: Service Worker 登録 ---- */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").catch(function(){});
+  });
+}
 
 renderSim();
 renderCalc();
