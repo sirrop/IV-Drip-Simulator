@@ -97,6 +97,14 @@
   .game-details { grid-column:1 / -1; border-top:1px solid var(--line); padding-top:8px; }
   .hint-box { background:var(--accent-soft); border-radius:10px; padding:10px 12px; margin:8px 0; }
   .hint-box p { margin:4px 0; font-size:13px; }
+  /* クリア演出 */
+  .celebrate-host { position:relative; }
+  .celebrate-layer { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:6; border-radius:14px; }
+  .confetti { position:absolute; top:0; width:8px; height:13px; border-radius:2px; opacity:0; }
+  .celebrate-banner { position:absolute; left:50%; top:36%; transform:translate(-50%,-50%); font-size:24px; font-weight:800;
+                      color:var(--accent); background:rgba(255,255,255,.94); border:2px solid var(--accent);
+                      border-radius:999px; padding:8px 20px; white-space:nowrap; box-shadow:0 6px 18px rgba(26,43,60,.18); }
+  @media (max-width:560px){ .celebrate-banner { font-size:19px; padding:7px 14px; } }
   @media (max-width:560px) {
     .game-layout { grid-template-columns:84px minmax(0, 1fr); gap:10px; }
     .game-layout .chamber { width:84px; }
@@ -313,7 +321,7 @@
 
   <!-- ============ ゲーム（速度当て） ============ -->
   <section class="panel" id="tab-game">
-    <div class="card">
+    <div class="card celebrate-host">
       <h2>ゲーム — この滴下速度は？</h2>
       <div class="game-layout">
         <div class="chamber">
@@ -365,7 +373,7 @@
 
   <!-- ============ クレンメ調整ゲーム ============ -->
   <section class="panel" id="tab-clamp">
-    <div class="card">
+    <div class="card celebrate-host">
       <h2>クレンメ調整 — 目標の速度に合わせる</h2>
       <div class="clamp-layout">
         <div class="chamber">
@@ -678,6 +686,41 @@ QUIZ.forEach(function(item, i){
   list.appendChild(div);
 });
 
+/* ---- クリア演出：虹色の紙吹雪＋バナー ---- */
+function celebrate(host, big, text){
+  if (!host) return;
+  host.querySelectorAll(".celebrate-layer").forEach(function(l){ l.remove(); });
+  var layer = document.createElement("div");
+  layer.className = "celebrate-layer";
+  var colors = ["#ef5350", "#ffa726", "#ffee58", "#66bb6a", "#42a5f5", "#5c6bc0", "#ab47bc"];
+  var n = big ? 64 : 38;
+  for (var i = 0; i < n; i++) {
+    var p = document.createElement("i");
+    p.className = "confetti";
+    p.style.background = colors[i % colors.length];
+    p.style.left = (Math.random() * 100) + "%";
+    layer.appendChild(p);
+    var dx = Math.round(Math.random() * 140 - 70);
+    var fall = Math.round(240 + Math.random() * 240);
+    var rot = Math.round(Math.random() * 620 - 310);
+    p.animate([
+      { transform: "translate(0,-12px) rotate(0deg)", opacity: 1 },
+      { transform: "translate(" + dx + "px," + fall + "px) rotate(" + rot + "deg)", opacity: .85 }
+    ], { duration: 1700 + Math.random() * 1300, delay: Math.random() * 400, easing: "cubic-bezier(.2,.7,.3,1)", fill: "both" });
+  }
+  var banner = document.createElement("div");
+  banner.className = "celebrate-banner";
+  banner.textContent = text;
+  layer.appendChild(banner);
+  banner.animate([
+    { transform: "translate(-50%,-50%) scale(.4)", opacity: 0 },
+    { transform: "translate(-50%,-50%) scale(1.12)", opacity: 1, offset: .55 },
+    { transform: "translate(-50%,-50%) scale(1)", opacity: 1 }
+  ], { duration: 450, easing: "ease-out", fill: "both" });
+  host.appendChild(layer);
+  setTimeout(function(){ layer.remove(); }, 3600);
+}
+
 /* ---- ゲーム（速度当て）: 20滴/mL固定、5問1セット ---- */
 var GAME_RATES = [40, 50, 60, 80, 100, 120, 125, 150, 200];
 var GAME_FACTOR = 20, GAME_ROUNDS = 5;
@@ -828,6 +871,7 @@ gNext.addEventListener("click", function(){
       (gScore === 5 ? "完璧です。そのリズム感、現場でも武器になります。" :
        gScore >= 3 ? "いい感覚です。外した問題のリズムをシミュレーターで見直してみてください。" :
                      "まずはシミュレーターで 40 / 60 / 100 mL/h のリズムを見比べてから再挑戦を。");
+    if (gScore >= 3) celebrate(document.querySelector("#tab-game .card"), gScore === 5, gScore === 5 ? "🎉 完全クリア！" : "🎉 クリア！");
     gPhase = "finished";
   } else {
     gNewRound();
@@ -1072,6 +1116,7 @@ document.getElementById("clamp-decide").addEventListener("click", function(){
     var nextBtn = document.getElementById("clamp-next");
     nextBtn.textContent = "次の対戦へ";
     nextBtn.style.display = "inline-block";
+    celebrate(document.querySelector("#tab-clamp .card"), false, "🎉 " + winner);
     return;
   }
 
@@ -1085,6 +1130,9 @@ document.getElementById("clamp-decide").addEventListener("click", function(){
     verdict + "<br>実際の速度は " + fmt(actual, 0) + " mL/h（目標 " + clampTarget + " mL/h、誤差 " + fmt(err, 0) + "%）、クレンメ位置は " + fmt(pos, 0) + "% でした。" +
     (clampRound >= 3 ? "<br>全3問が終わりました。スコアは " + clampScore + " / 3 です。" : "");
   drawClampGraph([{ pos: pos, actual: actual, label: "あなたの位置", shape: "circle" }]);
+  if (clampRound >= 3 && clampScore >= 2) {
+    celebrate(document.querySelector("#tab-clamp .card"), clampScore === 3, clampScore === 3 ? "🎉 完全クリア！" : "🎉 クリア！");
+  }
   if (clampRound < 3) {
     var soloNext = document.getElementById("clamp-next");
     soloNext.textContent = "次の問題へ";
