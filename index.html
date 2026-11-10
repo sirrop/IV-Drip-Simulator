@@ -85,6 +85,22 @@
   .clamp-play p:empty { display:none; }
   .clamp-after { margin:0; }
   .clamp-details { grid-column:1 / -1; border-top:1px solid var(--line); padding-top:8px; }
+  /* 速度当てゲーム：滴下筒と回答操作を横並びにする */
+  .game-layout { display:grid; grid-template-columns:110px minmax(0, 1fr); gap:16px; align-items:start; }
+  .game-layout .chamber { margin:0; }
+  .game-play { min-width:0; }
+  .game-play .seg { margin-top:0; }
+  .game-details { grid-column:1 / -1; border-top:1px solid var(--line); padding-top:8px; }
+  @media (max-width:560px) {
+    .game-layout { grid-template-columns:84px minmax(0, 1fr); gap:10px; }
+    .game-layout .chamber { width:84px; }
+    .game-play .seg { gap:6px; }
+    .game-play .seg button { padding:8px 9px; font-size:13px; }
+    #game-mode-seg button { flex:1; padding:8px 5px; font-size:12px; }
+    .game-main-seg button { flex:1; padding:8px 5px; font-size:12px; }
+    .game-play #game-status { font-size:13px; }
+    .game-play .choices button { padding:8px 10px; font-size:13px; }
+  }
   @media (max-width:560px) {
     .tabs { gap:6px; margin-bottom:12px; }
     .tabs button { min-width:0; flex:1 1 22%; padding:9px 4px; font-size:13px; }
@@ -289,24 +305,21 @@
   <!-- ============ ゲーム（速度当て） ============ -->
   <section class="panel" id="tab-game">
     <div class="card">
-      <div class="chamber-wrap">
+      <h2>ゲーム — この滴下速度は？</h2>
+      <div class="game-layout">
         <div class="chamber">
           <div class="tube" id="game-tube">
             <div class="fluid"></div>
           </div>
           <div class="cap">滴下筒（イメージ）</div>
         </div>
-        <div style="flex:1; min-width:240px;">
-          <h2>ゲーム — この滴下速度は？</h2>
-          <p>滴下係数 <strong>20滴/mL（一般用）</strong> で点滴が落ちています。リズムを見て、輸液速度（mL/h）を当ててください。全5問です。</p>
-          <p class="muted">コツ：現場と同じく「15秒数えて4倍」が使えます。「15秒カウント」を押すと15秒間だけ測れます（その間の滴数は終わってから表示されます）。</p>
-          <p><strong>回答方法</strong></p>
+        <div class="game-play">
           <div class="seg" id="game-mode-seg">
             <button data-mode="choices" aria-pressed="true">選択肢から選ぶ</button>
             <button data-mode="slider" aria-pressed="false">スライダーで入力</button>
           </div>
           <p><span id="game-round" class="muted">まだ始まっていません</span>　<strong id="game-timer"></strong></p>
-          <div class="seg">
+          <div class="seg game-main-seg">
             <button id="game-start">ゲームスタート</button>
             <button id="game-count" disabled>15秒カウント</button>
           </div>
@@ -325,6 +338,10 @@
             <button id="game-next" style="display:none;">次の問題へ</button>
           </div>
           <p class="muted">スコア：<span id="game-score">0</span> / 5問</p>
+        </div>
+        <div class="game-details">
+          <p>滴下係数 <strong>20滴/mL（一般用）</strong> で点滴が落ちています。リズムを見て、輸液速度（mL/h）を当ててください。全5問です。</p>
+          <p class="muted">コツ：現場と同じく「15秒数えて4倍」が使えます。「15秒カウント」を押すと15秒間だけ測れます（その間の滴数は終わってから表示されます）。</p>
         </div>
       </div>
     </div>
