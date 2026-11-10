@@ -532,7 +532,7 @@ function renderTap(anchor){
   document.getElementById("tap-rate").textContent = fmt(rateEst, 0);
   document.getElementById("tap-note").textContent =
     "直近 " + ivs.length + " 回分の間隔の中央値から計算しています。隣の滴下筒は、最後のタップを1滴目として推定リズムで滴下中です。見比べてみてください。";
-  if (anchor) { tapDripper.start(med); tapStarted = true; }
+  if (anchor) { tapDripper.clear(); tapDripper.start(med); tapStarted = true; }
   else { tapDripper.update(med); }
 }
 document.getElementById("tap-btn").addEventListener("click", function(){
