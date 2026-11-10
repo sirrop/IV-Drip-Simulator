@@ -72,6 +72,33 @@
   @keyframes fall { 0% { transform:translateY(0); opacity:0; } 8% { opacity:1; }
                     85% { opacity:1; } 100% { transform:translateY(150px); opacity:0; } }
   .chamber .cap { font-size:12px; color:var(--muted); text-align:center; margin-top:8px; }
+  /* クレンメ調整：滴下筒と操作部を横並びにして距離を縮める */
+  .clamp-layout { display:grid; grid-template-columns:110px minmax(0, 1fr); gap:16px; align-items:start; }
+  .clamp-layout .chamber { margin:0; }
+  .clamp-play { min-width:0; }
+  .clamp-play .seg { margin-top:0; }
+  .clamp-status { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:8px 0 2px; }
+  .clamp-status strong { font-size:20px; }
+  .clamp-start-btn { flex:none; padding:9px 14px; border:1px solid var(--line); border-radius:999px;
+                     background:#fff; font-size:14px; font-weight:700; cursor:pointer; }
+  .clamp-slider-label { margin:4px 0 0; }
+  .clamp-play p:empty { display:none; }
+  .clamp-after { margin:0; }
+  .clamp-details { grid-column:1 / -1; border-top:1px solid var(--line); padding-top:8px; }
+  @media (max-width:560px) {
+    .tabs { gap:6px; margin-bottom:12px; }
+    .tabs button { min-width:0; flex:1 1 22%; padding:9px 4px; font-size:13px; }
+    .clamp-layout { grid-template-columns:84px minmax(0, 1fr); gap:10px; }
+    .clamp-layout .chamber { width:84px; }
+    .clamp-play .seg { gap:6px; }
+    .clamp-play .seg button { padding:8px 9px; font-size:13px; }
+    .clamp-mode-row button { flex:1; }
+    .clamp-status { gap:8px; margin-top:6px; }
+    .clamp-status strong { font-size:19px; }
+    .clamp-start-btn { padding:8px 10px; font-size:13px; }
+    .clamp-actions button { flex:1; }
+    .clamp-details { padding-top:6px; }
+  }
   .compare { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:560px){ .compare { grid-template-columns:1fr; } }
   .vs { text-align:center; font-weight:800; color:var(--warn); margin:2px 0 10px; }
@@ -279,41 +306,44 @@
   <!-- ============ クレンメ調整ゲーム ============ -->
   <section class="panel" id="tab-clamp">
     <div class="card">
-      <div class="chamber-wrap">
+      <h2>クレンメ調整 — 目標の速度に合わせる</h2>
+      <div class="clamp-layout">
         <div class="chamber">
           <div class="tube" id="clamp-tube">
             <div class="fluid"></div>
           </div>
           <div class="cap">滴下筒（イメージ）</div>
         </div>
-        <div style="flex:1; min-width:240px;">
-          <h2>クレンメ調整 — 目標の速度に合わせる</h2>
-          <p>スライダーがクレンメです。滴の速さを見ながら、目標の輸液速度に合わせて「これで決定」を押してください（滴下係数 20滴/mL）。1人モードは全3問、2人対戦は同じ端末で交互に調節します。</p>
-          <p class="muted">ポイント：<strong>クレンメの位置と速度の関係は線形ではなく、しかも問題ごとに毎回変わります</strong>。速度の数値表示もありません。現場と同じく、滴を数えて（15秒カウントが使えます）感覚で合わせてください。対戦では同じクレンメ特性・同じ目標を使い、両者の結果は2人目が決めるまで伏せられます。</p>
-          <p><strong>モード</strong></p>
-          <div class="seg" id="clamp-mode-seg">
+        <div class="clamp-play">
+          <div class="seg clamp-mode-row" id="clamp-mode-seg">
             <button data-mode="solo" aria-pressed="true">1人で挑戦</button>
             <button data-mode="versus" aria-pressed="false">2人対戦（1端末）</button>
           </div>
-          <p><span id="clamp-round" class="muted">まだ始まっていません</span></p>
-          <p>目標：<strong id="clamp-target" style="font-size:20px;">— mL/h</strong></p>
-          <div class="seg">
-            <button id="clamp-start">ゲームスタート</button>
+          <div class="clamp-status">
+            <div>
+              <span id="clamp-round" class="muted">まだ始まっていません</span><br>
+              目標：<strong id="clamp-target">— mL/h</strong>
+            </div>
+            <button id="clamp-start" class="clamp-start-btn">ゲームスタート</button>
           </div>
-          <p><strong>クレンメ</strong> <span class="muted">（左端：全閉　右端：全開）</span></p>
+          <p class="clamp-slider-label"><strong>クレンメ</strong> <span class="muted">（左端：全閉　右端：全開）</span></p>
           <input type="range" id="clamp-slider" min="0" max="1000" value="500" disabled aria-label="クレンメ（スライダー）">
-          <div class="seg">
+          <div class="seg clamp-actions">
             <button id="clamp-count" disabled>15秒カウント</button>
             <button id="clamp-decide" disabled>これで決定</button>
           </div>
           <p class="muted" id="clamp-count-result"></p>
           <p id="clamp-feedback" style="font-weight:700;"></p>
           <canvas id="clamp-graph" width="300" height="180" style="display:none; max-width:100%; background:#fff; border:1px solid var(--line); border-radius:10px;"></canvas>
-          <div class="seg">
+          <div class="seg clamp-after">
             <button id="clamp-pass" style="display:none;">結果を隠してプレイヤー2へ渡す</button>
             <button id="clamp-next" style="display:none;">次の問題へ</button>
           </div>
           <p class="muted" id="clamp-score-line">スコア：0 / 3問（誤差10%以内で成功）</p>
+        </div>
+        <div class="clamp-details">
+          <p>スライダーがクレンメです。滴の速さを見ながら、目標の輸液速度に合わせて「これで決定」を押してください（滴下係数 20滴/mL）。1人モードは全3問、2人対戦は同じ端末で交互に調節します。</p>
+          <p class="muted">ポイント：<strong>クレンメの位置と速度の関係は線形ではなく、しかも問題ごとに毎回変わります</strong>。速度の数値表示もありません。現場と同じく、滴を数えて（15秒カウントが使えます）感覚で合わせてください。対戦では同じクレンメ特性・同じ目標を使い、両者の結果は2人目が決めるまで伏せられます。</p>
         </div>
       </div>
     </div>
