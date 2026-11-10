@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IV Drip Simulator — 輸液滴下速度 体感シミュレーター</title>
+<meta name="description" content="点滴の速さを、計算するだけでなく目で覚える。滴下係数と輸液速度を変えると滴下のアニメーションが連動する、学習用の輸液滴下シミュレーター。">
+<style>
+  :root { --ink:#1a2b3c; --muted:#5a6b7a; --line:#dbe4ec; --bg:#f4f8fb; --card:#fff;
+          --accent:#0e7c7b; --accent-soft:#e3f2f1; --warn:#b3541e; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+         color:var(--ink); background:var(--bg); line-height:1.7; }
+  header { background:var(--ink); color:#fff; padding:28px 20px 22px; }
+  header h1 { margin:0 0 6px; font-size:22px; line-height:1.4; }
+  header p { margin:0; color:#c3d2de; font-size:14px; }
+  main { max-width:860px; margin:0 auto; padding:20px 16px 48px; }
+  .tabs { display:flex; gap:8px; margin:4px 0 18px; flex-wrap:wrap; }
+  .tabs button { flex:1; min-width:120px; padding:11px 8px; border:1px solid var(--line); border-radius:10px;
+                 background:#fff; font-size:15px; font-weight:700; color:var(--muted); cursor:pointer; }
+  .tabs button[aria-selected="true"] { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .panel { display:none; }
+  .panel.active { display:block; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px; }
+  .card h2 { margin:0 0 8px; font-size:17px; }
+  .card p { margin:6px 0; font-size:14px; }
+  .muted { color:var(--muted); font-size:13px; }
+  .seg { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+  .seg button { padding:9px 14px; border:1px solid var(--line); border-radius:999px; background:#fff;
+                font-size:14px; font-weight:700; cursor:pointer; }
+  .seg button[aria-pressed="true"] { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  input[type="range"] { width:100%; accent-color:var(--accent); }
+  .rate-row { display:flex; justify-content:space-between; align-items:baseline; }
+  .rate-row strong { font-size:26px; }
+  .readouts { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:12px; }
+  .readout { background:var(--bg); border-radius:10px; padding:12px; text-align:center; }
+  .readout .v { font-size:24px; font-weight:800; line-height:1.2; }
+  .readout .l { font-size:12px; color:var(--muted); }
+  .formula { background:var(--accent-soft); border-radius:10px; padding:12px 14px; font-size:14px; margin-top:12px; }
+  .formula code { font-size:14px; }
+  /* 滴下筒 */
+  .chamber-wrap { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+  .chamber { width:110px; flex:none; margin:0 auto; }
+  .chamber .tube { position:relative; width:64px; height:190px; margin:0 auto; border:3px solid #9fb3c0;
+                   border-top:none; border-radius:0 0 32px 32px; overflow:hidden; background:#eef6fa; }
+  .chamber .fluid { position:absolute; left:0; right:0; bottom:0; height:34%; background:#bfe0ee; }
+  .chamber .drop { position:absolute; left:50%; top:6px; width:14px; height:20px; margin-left:-7px;
+                   background:#3d9ec4; border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+                   transform:translateY(0); opacity:0; }
+  .chamber .drop.falling { animation-name:fall; animation-timing-function:linear; animation-iteration-count:infinite; }
+  @keyframes fall { 0% { transform:translateY(0); opacity:0; } 8% { opacity:1; }
+                    85% { opacity:1; } 100% { transform:translateY(150px); opacity:0; } }
+  .chamber .cap { font-size:12px; color:var(--muted); text-align:center; margin-top:8px; }
+  .compare { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .compare { grid-template-columns:1fr; } }
+  .vs { text-align:center; font-weight:800; color:var(--warn); margin:2px 0 10px; }
+  .quiz-q { border-top:1px solid var(--line); padding:14px 0; }
+  .quiz-q:first-of-type { border-top:none; }
+  .quiz-q h3 { margin:0 0 8px; font-size:15px; }
+  .choices { display:flex; flex-wrap:wrap; gap:8px; }
+  .choices button { padding:8px 14px; border:1px solid var(--line); border-radius:999px; background:#fff;
+                    font-size:14px; cursor:pointer; }
+  .choices button.correct { background:#e2f3e5; border-color:#2e7d32; color:#2e7d32; font-weight:700; }
+  .choices button.wrong { background:#fdecea; border-color:#c62828; color:#c62828; }
+  .choices button:disabled { cursor:default; opacity:.85; }
+  .explain { display:none; font-size:13px; color:var(--muted); margin-top:8px; }
+  .explain.show { display:block; }
+  #score { font-weight:800; }
+  .disclaimer { font-size:12px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; margin-top:8px; }
+  footer { text-align:center; color:var(--muted); font-size:12px; padding:0 16px 32px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>IV Drip Simulator — 輸液滴下速度 体感シミュレーター</h1>
+  <p>点滴の速さを、計算するだけでなく、目で覚える。滴下係数と輸液速度を変えると、滴下筒のアニメーションが連動します。</p>
+</header>
+
+<main>
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="sim">シミュレーター</button>
+    <button role="tab" aria-selected="false" data-tab="compare">2画面比較</button>
+    <button role="tab" aria-selected="false" data-tab="quiz">クイズ（全10問）</button>
+  </div>
+
+  <!-- ============ シミュレーター ============ -->
+  <section class="panel active" id="tab-sim">
+    <div class="card">
+      <div class="chamber-wrap">
+        <div class="chamber">
+          <div class="tube">
+            <div class="drop falling" id="sim-drop"></div>
+            <div class="fluid"></div>
+          </div>
+          <div class="cap">滴下筒（イメージ）</div>
+        </div>
+        <div style="flex:1; min-width:240px;">
+          <h2>条件を変えて、滴の速さを体感する</h2>
+          <p><strong>滴下係数（1 mLあたりの滴数）</strong></p>
+          <div class="seg" id="factor-seg">
+            <button data-factor="10" aria-pressed="false">10滴/mL</button>
+            <button data-factor="15" aria-pressed="false">15滴/mL</button>
+            <button data-factor="20" aria-pressed="true">20滴/mL</button>
+            <button data-factor="60" aria-pressed="false">60滴/mL</button>
+          </div>
+          <p><strong>輸液速度</strong></p>
+          <div class="rate-row"><span>10 mL/h</span><strong><span id="rate-val">100</span> mL/h</strong><span>300 mL/h</span></div>
+          <input type="range" id="rate" min="10" max="300" step="5" value="100" aria-label="輸液速度（mL/h）">
+          <div class="seg" id="preset-seg">
+            <button data-rate="40">40</button><button data-rate="60">60</button><button data-rate="80">80</button>
+            <button data-rate="100">100</button><button data-rate="125">125</button><button data-rate="150">150</button>
+            <button data-rate="200">200</button>
+          </div>
+          <div class="readouts">
+            <div class="readout"><div class="v" id="out-dpm">33.3</div><div class="l">滴/分</div></div>
+            <div class="readout"><div class="v" id="out-interval">1.8秒</div><div class="l">1滴の間隔</div></div>
+            <div class="readout"><div class="v" id="out-15s">約8滴</div><div class="l">15秒間の滴数</div></div>
+          </div>
+          <div class="formula">
+            <code>滴/分 ＝ 輸液速度(mL/h) × 滴下係数(滴/mL) ÷ 60</code><br>
+            <span id="formula-work">100 × 20 ÷ 60 ＝ 33.3 滴/分　→　60 ÷ 33.3 ≒ 1.8秒に1滴</span>
+          </div>
+          <p class="muted">15秒数えて4倍する、現場の数え方でも確認できます。上の「15秒間の滴数」と見比べてみてください。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2画面比較 ============ -->
+  <section class="panel" id="tab-compare">
+    <div class="card">
+      <h2>同じ速さなのに、見た目が3倍違う</h2>
+      <p>輸液速度は両方とも <strong><span id="cmp-rate-val">100</span> mL/h</strong> で同じ。違うのは滴下係数だけです。</p>
+      <input type="range" id="cmp-rate" min="10" max="300" step="5" value="100" aria-label="比較する輸液速度（mL/h）">
+      <div class="compare" style="margin-top:14px;">
+        <div>
+          <div class="chamber"><div class="tube"><div class="drop falling" id="cmp-drop-a"></div><div class="fluid"></div></div>
+          <div class="cap">A：20滴/mL（一般用）</div></div>
+          <div class="readouts">
+            <div class="readout"><div class="v" id="cmp-a-dpm">33.3</div><div class="l">滴/分</div></div>
+            <div class="readout"><div class="v" id="cmp-a-int">1.8秒</div><div class="l">1滴の間隔</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="chamber"><div class="tube"><div class="drop falling" id="cmp-drop-b"></div><div class="fluid"></div></div>
+          <div class="cap">B：60滴/mL（微量・小児用）</div></div>
+          <div class="readouts">
+            <div class="readout"><div class="v" id="cmp-b-dpm">100</div><div class="l">滴/分</div></div>
+            <div class="readout"><div class="v" id="cmp-b-int">0.6秒</div><div class="l">1滴の間隔</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="vs">同じ 100 mL/h でも、BはAの3倍の速さで滴が落ちるように見える</div>
+      <p><strong>比較ポイント</strong></p>
+      <p>1. 1滴あたりの量は係数で決まります。60滴/mLでは1滴あたりの量が20滴/mLの <strong>1/3</strong> になるため、同じ量を送るには3倍の滴数が必要です。</p>
+      <p>2. 15秒で数えると、Aは約8滴、Bは25滴。見た目の速さと実際の量は比例しません — だからこそ、係数を確認してから滴数を数える習慣が大事です。</p>
+      <p class="muted">※ 滴下係数は輸液セットの包装・添付文書で確認してください。セットによって 10 / 15 / 20 / 60滴/mL などがあります。</p>
+    </div>
+  </section>
+
+  <!-- ============ クイズ ============ -->
+  <section class="panel" id="tab-quiz">
+    <div class="card">
+      <h2>クイズ — 滴数を計算してみよう <span id="score">0 / 10問正解</span></h2>
+      <p class="muted">全10問を一覧で解けます。選択肢をタップすると正誤と解説がその場で出ます。式は「滴/分 ＝ mL/h × 滴下係数 ÷ 60」です。</p>
+      <div id="quiz-list"></div>
+      <p class="disclaimer">このアプリは学習用のシミュレーターです。実際の投与速度は必ず処方・指示と、輸液ポンプまたは滴下筒の実測で確認してください。表示される数値は計算上の目安です。</p>
+    </div>
+  </section>
+</main>
+<footer>IV Drip Simulator — 学習用シミュレーター / 完全無料</footer>
+
+<script>
+"use strict";
+/* ---- 共通計算: 滴/分 = 速度 × 係数 ÷ 60, 間隔(秒) = 3600 ÷ (速度 × 係数) ---- */
+function calc(rate, factor){
+  var dpm = rate * factor / 60;
+  return { dpm: dpm, interval: 3600 / (rate * factor), count15: dpm / 4 };
+}
+function fmt(n, d){ return (Math.round(n * Math.pow(10, d)) / Math.pow(10, d)).toString(); }
+
+/* ---- タブ ---- */
+document.querySelectorAll(".tabs button").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    document.querySelectorAll(".tabs button").forEach(function(b){ b.setAttribute("aria-selected","false"); });
+    btn.setAttribute("aria-selected","true");
+    document.querySelectorAll(".panel").forEach(function(p){ p.classList.remove("active"); });
+    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* ---- シミュレーター ---- */
+var factor = 20, rate = 100;
+var simDrop = document.getElementById("sim-drop");
+function renderSim(){
+  var r = calc(rate, factor);
+  document.getElementById("rate-val").textContent = rate;
+  document.getElementById("out-dpm").textContent = fmt(r.dpm, 1);
+  document.getElementById("out-interval").textContent = fmt(r.interval, 1) + "秒";
+  document.getElementById("out-15s").textContent = "約" + Math.round(r.count15) + "滴";
+  document.getElementById("formula-work").textContent =
+    rate + " × " + factor + " ÷ 60 ＝ " + fmt(r.dpm, 1) + " 滴/分　→　60 ÷ " + fmt(r.dpm, 1) +
+    " ≒ " + fmt(r.interval, 1) + "秒に1滴";
+  simDrop.style.animationDuration = Math.max(r.interval, 0.25) + "s";
+}
+document.getElementById("factor-seg").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if(!b) return;
+  factor = +b.dataset.factor;
+  document.querySelectorAll("#factor-seg button").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+  renderSim();
+});
+document.getElementById("rate").addEventListener("input", function(e){ rate = +e.target.value; renderSim(); });
+document.getElementById("preset-seg").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if(!b) return;
+  rate = +b.dataset.rate; document.getElementById("rate").value = rate; renderSim();
+});
+
+/* ---- 2画面比較 ---- */
+function renderCmp(){
+  var r = +document.getElementById("cmp-rate").value;
+  document.getElementById("cmp-rate-val").textContent = r;
+  var a = calc(r, 20), b = calc(r, 60);
+  document.getElementById("cmp-a-dpm").textContent = fmt(a.dpm, 1);
+  document.getElementById("cmp-a-int").textContent = fmt(a.interval, 1) + "秒";
+  document.getElementById("cmp-b-dpm").textContent = fmt(b.dpm, 1);
+  document.getElementById("cmp-b-int").textContent = fmt(b.interval, 1) + "秒";
+  document.getElementById("cmp-drop-a").style.animationDuration = Math.max(a.interval, 0.25) + "s";
+  document.getElementById("cmp-drop-b").style.animationDuration = Math.max(b.interval, 0.25) + "s";
+}
+document.getElementById("cmp-rate").addEventListener("input", renderCmp);
+
+/* ---- クイズ（全10問・一覧形式） ---- */
+var QUIZ = [
+  { q:"輸液速度 60 mL/h、滴下係数 20滴/mL のとき、1分あたりの滴数は？",
+    choices:["10滴/分","20滴/分","30滴/分","60滴/分"], answer:1,
+    ex:"60 × 20 ÷ 60 ＝ 20滴/分。1滴の間隔は 60 ÷ 20 ＝ 3秒です。" },
+  { q:"輸液速度 100 mL/h、滴下係数 20滴/mL のとき、1分あたりの滴数は？",
+    choices:["20滴/分","33滴/分","50滴/分","100滴/分"], answer:1,
+    ex:"100 × 20 ÷ 60 ≒ 33.3滴/分。1滴の間隔は約1.8秒、15秒で約8滴です。" },
+  { q:"輸液速度 100 mL/h、滴下係数 60滴/mL のとき、1分あたりの滴数は？",
+    choices:["33滴/分","60滴/分","100滴/分","120滴/分"], answer:2,
+    ex:"100 × 60 ÷ 60 ＝ 100滴/分。1滴の間隔は0.6秒、15秒で25滴です。" },
+  { q:"輸液速度 80 mL/h、滴下係数 15滴/mL のとき、1分あたりの滴数は？",
+    choices:["15滴/分","20滴/分","25滴/分","40滴/分"], answer:1,
+    ex:"80 × 15 ÷ 60 ＝ 20滴/分。1滴の間隔は3秒です。" },
+  { q:"輸液速度 120 mL/h、滴下係数 20滴/mL のとき、1分あたりの滴数は？",
+    choices:["30滴/分","36滴/分","40滴/分","60滴/分"], answer:2,
+    ex:"120 × 20 ÷ 60 ＝ 40滴/分。1滴の間隔は1.5秒です。" },
+  { q:"輸液速度 50 mL/h、滴下係数 60滴/mL のとき、1分あたりの滴数は？",
+    choices:["30滴/分","50滴/分","60滴/分","83滴/分"], answer:1,
+    ex:"50 × 60 ÷ 60 ＝ 50滴/分。1滴の間隔は1.2秒です。" },
+  { q:"輸液速度 30 mL/h、滴下係数 20滴/mL のとき、1分あたりの滴数は？",
+    choices:["6滴/分","10滴/分","15滴/分","20滴/分"], answer:1,
+    ex:"30 × 20 ÷ 60 ＝ 10滴/分。1滴の間隔は6秒と、かなりゆっくりです。" },
+  { q:"輸液速度 200 mL/h、滴下係数 15滴/mL のとき、1分あたりの滴数は？",
+    choices:["33滴/分","40滴/分","50滴/分","75滴/分"], answer:2,
+    ex:"200 × 15 ÷ 60 ＝ 50滴/分。1滴の間隔は1.2秒です。" },
+  { q:"1滴が2秒に1回のペースで落ちています。滴下係数 20滴/mL のとき、輸液速度は？",
+    choices:["60 mL/h","90 mL/h","120 mL/h","180 mL/h"], answer:1,
+    ex:"2秒に1滴 ＝ 30滴/分。30滴/分 × 60分 ÷ 20滴/mL ＝ 90 mL/h です。" },
+  { q:"輸液速度 120 mL/h、滴下係数 60滴/mL のとき、1滴の間隔は？",
+    choices:["0.5秒","1.0秒","1.5秒","2.0秒"], answer:0,
+    ex:"120 × 60 ÷ 60 ＝ 120滴/分。60 ÷ 120 ＝ 0.5秒に1滴です。" }
+];
+var score = 0, answered = 0;
+var list = document.getElementById("quiz-list");
+QUIZ.forEach(function(item, i){
+  var div = document.createElement("div");
+  div.className = "quiz-q";
+  div.innerHTML = "<h3>Q" + (i + 1) + ". " + item.q + "</h3>";
+  var box = document.createElement("div"); box.className = "choices";
+  item.choices.forEach(function(c, j){
+    var b = document.createElement("button");
+    b.textContent = c;
+    b.addEventListener("click", function(){
+      box.querySelectorAll("button").forEach(function(x){ x.disabled = true; });
+      if (j === item.answer) { b.classList.add("correct"); score++; }
+      else { b.classList.add("wrong"); box.children[item.answer].classList.add("correct"); }
+      answered++;
+      document.getElementById("score").textContent = score + " / 10問正解";
+      var ex = document.createElement("p"); ex.className = "explain show";
+      ex.textContent = (j === item.answer ? "正解！ " : "不正解。") + item.ex;
+      div.appendChild(ex);
+    });
+    box.appendChild(b);
+  });
+  div.appendChild(box);
+  list.appendChild(div);
+});
+
+renderSim();
+renderCmp();
+</script>
+</body>
+</html>
