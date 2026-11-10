@@ -72,6 +72,11 @@
   .tap-btn:active { background:var(--accent); color:#fff; }
   .fb-btn { display:inline-block; padding:10px 18px; border-radius:999px; background:var(--accent);
             color:#fff; font-weight:700; text-decoration:none; }
+  .share-btn { display:inline-block; padding:10px 16px; margin:2px 4px 2px 0; border-radius:999px;
+               border:1px solid var(--line); background:#fff; color:var(--ink);
+               font-size:14px; font-weight:700; text-decoration:none; cursor:pointer; }
+  .share-x { background:#000; border-color:#000; color:#fff; }
+  .share-line { background:#06c755; border-color:#06c755; color:#fff; }
   .disclaimer { font-size:12px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; margin-top:8px; }
   footer { text-align:center; color:var(--muted); font-size:12px; padding:0 16px 32px; }
 </style>
@@ -287,6 +292,30 @@
           <p class="muted" id="tap-note">滴が落ちるたびにボタンをタップしてください。3回目から推定が出ます。</p>
           <div class="seg"><button id="tap-reset">リセット</button></div>
           <p class="muted">6秒以上間隔が空くと、自動で最初から数え直します。間隔は外れ値に強い中央値で計算します。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 共有 ============ -->
+  <section>
+    <div class="card">
+      <h2>このアプリを共有する</h2>
+      <div class="chamber-wrap">
+        <div style="flex:1; min-width:240px;">
+          <p>同僚や後輩、実習仲間にもどうぞ。感想は下のフィードバックからも受け付けています。</p>
+          <p>
+            <button class="share-btn" id="share-native" style="display:none;">共有する</button>
+            <a class="share-btn share-x" href="https://twitter.com/intent/tweet?text=IV%20Drip%20Simulator%20%E2%80%94%20%E7%82%B9%E6%BB%B4%E3%81%AE%E6%BB%B4%E4%B8%8B%E9%80%9F%E5%BA%A6%E3%82%92%E3%82%A2%E3%83%8B%E3%83%A1%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%81%A7%E4%BD%93%E6%84%9F%E3%81%A7%E3%81%8D%E3%82%8B%E5%AD%A6%E7%BF%92%E7%94%A8%E3%82%B7%E3%83%9F%E3%83%A5%E3%83%AC%E3%83%BC%E3%82%BF%E3%83%BC&url=https%3A//sirrop.github.io/IV-Drip-Simulator/" target="_blank" rel="noopener">Xでポスト</a>
+            <a class="share-btn share-line" href="https://social-plugins.line.me/lineit/share?url=https%3A//sirrop.github.io/IV-Drip-Simulator/" target="_blank" rel="noopener">LINEで送る</a>
+            <button class="share-btn" id="share-copy">URLをコピー</button>
+          </p>
+          <p class="muted" id="share-copy-note"></p>
+        </div>
+        <div style="text-align:center;">
+          <div style="display:inline-block; background:#fff; padding:8px; border:1px solid var(--line); border-radius:10px;"><svg xmlns="http://www.w3.org/2000/svg" width="164" height="164" role="img" aria-label="このアプリのQRコード" class="segno"><path transform="scale(6)" class="qrline" stroke="#000" d="M2 2.5h7m2 0h1m1 0h1m4 0h3m1 0h1m1 0h2m2 0h7m-33 1h1m5 0h1m3 0h2m3 0h1m1 0h1m1 0h2m1 0h1m3 0h1m5 0h1m-33 1h1m1 0h3m1 0h1m1 0h2m2 0h3m4 0h1m1 0h1m2 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m3 0h3m1 0h1m1 0h3m5 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m1 0h1m3 0h7m2 0h1m2 0h1m1 0h3m1 0h1m-33 1h1m5 0h1m1 0h1m4 0h1m3 0h1m1 0h2m5 0h1m5 0h1m-33 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-24 1h1m3 0h2m1 0h2m3 0h4m-24 1h1m2 0h1m1 0h1m1 0h2m1 0h2m3 0h2m1 0h3m1 0h3m1 0h2m1 0h1m-31 1h1m2 0h2m2 0h2m1 0h4m2 0h1m1 0h1m2 0h1m1 0h1m1 0h1m3 0h4m-32 1h1m4 0h2m1 0h1m1 0h4m1 0h2m2 0h2m1 0h1m2 0h1m2 0h1m1 0h1m-32 1h1m1 0h1m5 0h1m1 0h3m2 0h4m1 0h3m2 0h1m5 0h2m-33 1h3m1 0h1m1 0h2m3 0h1m1 0h1m1 0h2m1 0h5m1 0h1m1 0h1m1 0h2m-30 1h2m2 0h1m3 0h2m1 0h1m1 0h1m3 0h1m1 0h3m1 0h1m3 0h1m-24 1h7m3 0h1m1 0h1m1 0h1m1 0h1m2 0h5m3 0h1m-32 1h1m2 0h1m1 0h1m1 0h1m1 0h1m3 0h1m5 0h5m1 0h4m-29 1h3m3 0h3m1 0h6m1 0h1m3 0h3m2 0h1m1 0h4m-32 1h2m2 0h1m2 0h1m2 0h3m1 0h1m1 0h3m4 0h1m5 0h3m-32 1h2m4 0h2m1 0h1m3 0h2m1 0h2m3 0h3m3 0h1m1 0h1m-30 1h1m1 0h1m1 0h1m3 0h1m1 0h2m1 0h1m1 0h2m1 0h1m2 0h1m5 0h1m3 0h2m-33 1h1m4 0h2m4 0h3m1 0h3m2 0h3m1 0h6m-30 1h1m1 0h4m2 0h3m1 0h4m2 0h1m1 0h1m1 0h2m1 0h1m1 0h1m1 0h3m-30 1h1m1 0h1m1 0h2m3 0h1m2 0h1m2 0h1m5 0h2m2 0h5m-30 1h3m3 0h1m1 0h5m1 0h4m1 0h1m3 0h2m1 0h2m1 0h2m-33 1h3m1 0h4m3 0h4m2 0h1m1 0h4m1 0h5m2 0h1m-24 1h2m2 0h1m3 0h3m4 0h2m3 0h1m1 0h2m-32 1h7m2 0h1m1 0h7m3 0h1m2 0h1m1 0h1m1 0h2m1 0h1m-32 1h1m5 0h1m3 0h1m1 0h2m1 0h1m1 0h2m1 0h3m1 0h1m3 0h1m2 0h1m-32 1h1m1 0h3m1 0h1m1 0h1m3 0h1m4 0h3m1 0h2m1 0h6m1 0h1m-32 1h1m1 0h3m1 0h1m5 0h4m5 0h1m1 0h2m1 0h4m1 0h1m-32 1h1m1 0h3m1 0h1m4 0h1m4 0h1m1 0h1m1 0h5m1 0h3m-29 1h1m5 0h1m1 0h4m1 0h2m1 0h1m2 0h3m3 0h2m-27 1h7m4 0h1m3 0h1m1 0h1m3 0h4m1 0h1m3 0h1m1 0h1"/></svg>
+</div>
+          <div class="cap">QRコードからも開けます</div>
         </div>
       </div>
     </div>
@@ -656,6 +685,27 @@ document.getElementById("tap-reset").addEventListener("click", function(){
   tapDripper.stop(); tapDripper.clear();
   renderTap();
 });
+
+/* ---- 共有 ---- */
+(function(){
+  var appUrl = "https://sirrop.github.io/IV-Drip-Simulator/";
+  var nb = document.getElementById("share-native");
+  if (nb && navigator.share) {
+    nb.style.display = "inline-block";
+    nb.addEventListener("click", function(){
+      navigator.share({ title: document.title,
+        text: "点滴の滴下速度を、計算だけでなくアニメーションで体感できる学習用シミュレーター",
+        url: appUrl }).catch(function(){});
+    });
+  }
+  var cp = document.getElementById("share-copy");
+  if (cp) cp.addEventListener("click", function(){
+    var note = document.getElementById("share-copy-note");
+    function done(){ note.textContent = "URLをコピーしました。"; setTimeout(function(){ note.textContent = ""; }, 2500); }
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(appUrl).then(done, done); }
+    else { note.textContent = appUrl; }
+  });
+})();
 
 renderSim();
 renderCalc();
