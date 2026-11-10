@@ -71,10 +71,6 @@
   .chamber .drop.falling { animation:fall 0.45s linear forwards; }
   @keyframes fall { 0% { transform:translateY(0); opacity:0; } 8% { opacity:1; }
                     85% { opacity:1; } 100% { transform:translateY(150px); opacity:0; } }
-  /* 水面の発光はJS（Web Animations）で .fluid に直接かける */
-  .fx-btn { padding:7px 13px; border:1px solid var(--line); border-radius:999px; background:#fff;
-            font-size:13px; font-weight:700; cursor:pointer; color:var(--muted); }
-  .fx-btn[aria-pressed="true"] { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
   .chamber .cap { font-size:12px; color:var(--muted); text-align:center; margin-top:8px; }
   /* クレンメ調整：滴下筒と操作部を横並びにして距離を縮める */
   .clamp-layout { display:grid; grid-template-columns:110px minmax(0, 1fr); gap:16px; align-items:start; }
@@ -179,9 +175,6 @@
 </header>
 
 <main>
-  <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
-    <button id="fx-ripple-btn" class="fx-btn" aria-pressed="true">水面アニメーション：オン</button>
-  </div>
   <div class="tabs" role="tablist">
     <button role="tab" aria-selected="true" data-tab="sim">シミュレーター</button>
     <button role="tab" aria-selected="false" data-tab="calc">計算（量と時間）</button>
@@ -511,49 +504,6 @@ function calc(rate, factor){
 }
 function fmt(n, d){ return (Math.round(n * Math.pow(10, d)) / Math.pow(10, d)).toString(); }
 
-/* ---- 水面アニメーション（着水時に水が光り、色が虹の順に巡る）のオンオフ ---- */
-var rippleOn = true;
-try { rippleOn = localStorage.getItem("iv-drip-ripple") !== "off"; } catch (e) {}
-function fxRippleApply(){
-  var b = document.getElementById("fx-ripple-btn");
-  if (!b) return;
-  b.setAttribute("aria-pressed", rippleOn ? "true" : "false");
-  b.textContent = "水面アニメーション：" + (rippleOn ? "オン" : "オフ");
-}
-document.getElementById("fx-ripple-btn").addEventListener("click", function(){
-  rippleOn = !rippleOn;
-  try { localStorage.setItem("iv-drip-ripple", rippleOn ? "on" : "off"); } catch (e) {}
-  fxRippleApply();
-});
-fxRippleApply();
-function flashFluid(tube){
-  var f = tube.querySelector(".fluid");
-  if (!f || !f.animate) return;
-  f.getAnimations().forEach(function(a){ a.cancel(); });
-  f.animate([
-    { filter: "brightness(1)", boxShadow: "inset 0 0 0 rgba(255,255,255,0)" },
-    { filter: "brightness(1.3)", boxShadow: "inset 0 10px 18px rgba(255,255,255,.8)" },
-    { filter: "brightness(1)", boxShadow: "inset 0 0 0 rgba(255,255,255,0)" }
-  ], { duration: 450, easing: "ease-out" });
-}
-/* 着水ごとに水の色が虹の順に巡る（筒ごと） */
-var RAINBOW = ["#ef5350", "#ffa726", "#ffee58", "#66bb6a", "#42a5f5", "#5c6bc0", "#ab47bc"];
-function advanceColor(tube){
-  var f = tube.querySelector(".fluid");
-  if (!f) return;
-  var i = (tube._colorIdx === undefined) ? 0 : (tube._colorIdx + 1) % RAINBOW.length;
-  tube._colorIdx = i;
-  f.style.transition = "background-color .35s";
-  f.style.backgroundColor = RAINBOW[i];
-}
-function scheduleGlow(tube, drop){
-  if (!rippleOn) return;
-  var tubeH = tube.clientHeight || 190;
-  var total = tubeH <= 160 ? 105 : 150;
-  var cross = Math.max(0, (tubeH * 0.66 - 6 - drop.offsetHeight) / total);
-  setTimeout(function(){ if (rippleOn) { advanceColor(tube); flashFluid(tube); } }, 450 * cross);
-}
-
 /* ---- 滴下ドライバ：滴の落下速度は常に一定（0.45秒）、変わるのは落下の間隔だけ ---- */
 function createDripper(tube, onDrop){
   var timer = null, interval = 1, running = false;
@@ -563,7 +513,6 @@ function createDripper(tube, onDrop){
     d.className = "drop falling";
     d.addEventListener("animationend", function(){ d.remove(); });
     tube.appendChild(d);
-    scheduleGlow(tube, d);
     if (onDrop) onDrop();
     timer = setTimeout(spawn, Math.max(interval, 0.05) * 1000);
   }
