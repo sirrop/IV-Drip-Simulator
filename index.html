@@ -30,6 +30,7 @@
                 font-size:14px; font-weight:700; cursor:pointer; }
   .seg button[aria-pressed="true"] { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
   input[type="range"] { width:100%; accent-color:var(--accent); }
+  .num-in { width:104px; padding:8px 10px; font-size:16px; border:1px solid var(--line); border-radius:8px; }
   .rate-row { display:flex; justify-content:space-between; align-items:baseline; }
   .rate-row strong { font-size:26px; }
   .readouts { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:12px; }
@@ -84,6 +85,7 @@
 <main>
   <div class="tabs" role="tablist">
     <button role="tab" aria-selected="true" data-tab="sim">シミュレーター</button>
+    <button role="tab" aria-selected="false" data-tab="calc">計算（量と時間）</button>
     <button role="tab" aria-selected="false" data-tab="compare">2画面比較</button>
     <button role="tab" aria-selected="false" data-tab="quiz">クイズ（全10問）</button>
     <button role="tab" aria-selected="false" data-tab="game">ゲーム（速度当て）</button>
@@ -127,6 +129,49 @@
             <span id="formula-work">100 × 20 ÷ 60 ＝ 33.3 滴/分　→　60 ÷ 33.3 ≒ 1.8秒に1滴</span>
           </div>
           <p class="muted">15秒数えて4倍する、現場の数え方でも確認できます。上の「15秒間の滴数」と見比べてみてください。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 計算（量と時間） ============ -->
+  <section class="panel" id="tab-calc">
+    <div class="card">
+      <div class="chamber-wrap">
+        <div class="chamber">
+          <div class="tube" id="calc-tube">
+            <div class="fluid"></div>
+          </div>
+          <div class="cap">滴下筒（イメージ）</div>
+        </div>
+        <div style="flex:1; min-width:240px;">
+          <h2>総輸液量と時間から、滴下速度を出す</h2>
+          <p><strong>総輸液量</strong></p>
+          <p><input type="number" class="num-in" id="calc-vol" value="500" min="1" step="10"> mL</p>
+          <div class="seg" id="calc-vol-seg">
+            <button data-vol="100">100 mL</button><button data-vol="250">250 mL</button><button data-vol="500">500 mL</button><button data-vol="1000">1000 mL</button>
+          </div>
+          <p><strong>落とす時間</strong></p>
+          <p><input type="number" class="num-in" id="calc-hours" value="8" min="0" step="1"> 時間
+             <input type="number" class="num-in" id="calc-mins" value="0" min="0" max="59" step="5"> 分</p>
+          <p><strong>滴下係数</strong></p>
+          <div class="seg" id="calc-factor-seg">
+            <button data-factor="10" aria-pressed="false">10滴/mL</button>
+            <button data-factor="15" aria-pressed="false">15滴/mL</button>
+            <button data-factor="20" aria-pressed="true">20滴/mL</button>
+            <button data-factor="60" aria-pressed="false">60滴/mL</button>
+          </div>
+          <div class="readouts">
+            <div class="readout"><div class="v" id="calc-rate">62.5</div><div class="l">輸液速度（mL/h）</div></div>
+            <div class="readout"><div class="v" id="calc-dpm">20.8</div><div class="l">滴/分</div></div>
+            <div class="readout"><div class="v" id="calc-interval">2.9秒</div><div class="l">1滴の間隔</div></div>
+            <div class="readout"><div class="v" id="calc-15s">約5滴</div><div class="l">15秒間の滴数</div></div>
+          </div>
+          <div class="formula">
+            <code>輸液速度(mL/h) ＝ 総輸液量(mL) ÷ 時間(h)</code><br>
+            <span id="calc-formula-work">500 ÷ 8 ＝ 62.5 mL/h　→　62.5 × 20 ÷ 60 ≒ 20.8 滴/分</span>
+          </div>
+          <p class="muted">隣の滴下筒は、計算した速度のリズムで滴下しています。そのリズムを目で覚えておくと、現場で合わせやすくなります。</p>
         </div>
       </div>
     </div>
@@ -512,6 +557,46 @@ gNext.addEventListener("click", function(){
   }
 });
 
+/* ---- 計算（量と時間）：総輸液量 ÷ 時間 → 速度・滴下数 ---- */
+var calcFactor = 20, calcRunning = false;
+var calcDripper = createDripper(document.getElementById("calc-tube"), null);
+function renderCalc(){
+  var vol = parseFloat(document.getElementById("calc-vol").value);
+  var h = parseFloat(document.getElementById("calc-hours").value) || 0;
+  var m = parseFloat(document.getElementById("calc-mins").value) || 0;
+  var totalH = h + m / 60;
+  if (!(vol > 0) || !(totalH > 0)) {
+    ["calc-rate", "calc-dpm", "calc-interval", "calc-15s"].forEach(function(id){ document.getElementById(id).textContent = "—"; });
+    document.getElementById("calc-formula-work").textContent = "総輸液量と時間を入力してください。";
+    calcDripper.stop(); calcDripper.clear(); calcRunning = false;
+    return;
+  }
+  var r = vol / totalH;
+  var c = calc(r, calcFactor);
+  document.getElementById("calc-rate").textContent = fmt(r, 1);
+  document.getElementById("calc-dpm").textContent = fmt(c.dpm, 1);
+  document.getElementById("calc-interval").textContent = fmt(c.interval, 1) + "秒";
+  document.getElementById("calc-15s").textContent = "約" + Math.round(c.count15) + "滴";
+  document.getElementById("calc-formula-work").textContent =
+    fmt(vol, 0) + " ÷ " + fmt(totalH, 2) + " ＝ " + fmt(r, 1) + " mL/h　→　" + fmt(r, 1) + " × " + calcFactor + " ÷ 60 ≒ " + fmt(c.dpm, 1) + " 滴/分";
+  if (!calcRunning) { calcDripper.start(c.interval); calcRunning = true; }
+  else { calcDripper.update(c.interval); }
+}
+["calc-vol", "calc-hours", "calc-mins"].forEach(function(id){
+  document.getElementById(id).addEventListener("input", renderCalc);
+});
+document.getElementById("calc-vol-seg").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if (!b) return;
+  document.getElementById("calc-vol").value = b.dataset.vol;
+  renderCalc();
+});
+document.getElementById("calc-factor-seg").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if (!b) return;
+  calcFactor = +b.dataset.factor;
+  document.querySelectorAll("#calc-factor-seg button").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+  renderCalc();
+});
+
 /* ---- タップ測定：タップ間隔（中央値）から速度を逆算 ---- */
 var tapFactor = 20, tapTimes = [], tapStarted = false, tapWindow = 10;
 var tapDripper = createDripper(document.getElementById("tap-tube"), null);
@@ -573,6 +658,7 @@ document.getElementById("tap-reset").addEventListener("click", function(){
 });
 
 renderSim();
+renderCalc();
 renderCmp();
 renderTap();
 simDripper.start(calc(rate, factor).interval);
