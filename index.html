@@ -300,6 +300,11 @@
           <h2>ゲーム — この滴下速度は？</h2>
           <p>滴下係数 <strong>20滴/mL（一般用）</strong> で点滴が落ちています。リズムを見て、輸液速度（mL/h）を当ててください。全5問です。</p>
           <p class="muted">コツ：現場と同じく「15秒数えて4倍」が使えます。「15秒カウント」を押すと15秒間だけ測れます（その間の滴数は終わってから表示されます）。</p>
+          <p><strong>回答方法</strong></p>
+          <div class="seg" id="game-mode-seg">
+            <button data-mode="choices" aria-pressed="true">選択肢から選ぶ</button>
+            <button data-mode="slider" aria-pressed="false">スライダーで入力</button>
+          </div>
           <p><span id="game-round" class="muted">まだ始まっていません</span>　<strong id="game-timer"></strong></p>
           <div class="seg">
             <button id="game-start">ゲームスタート</button>
@@ -307,6 +312,14 @@
           </div>
           <p id="game-status" style="font-weight:700;">「ゲームスタート」を押すと滴下が始まります。</p>
           <div class="choices" id="game-choices"></div>
+          <div id="game-free" style="display:none;">
+            <p>あなたの予想：<strong id="game-free-val" style="font-size:20px;">100</strong> mL/h</p>
+            <input type="range" id="game-free-slider" min="20" max="250" step="5" value="100" disabled aria-label="予想する輸液速度（mL/h）">
+            <div class="seg">
+              <button id="game-free-answer" disabled>この速度で回答</button>
+            </div>
+            <p class="muted">誤差10%以内で正解です。</p>
+          </div>
           <p class="explain" id="game-explain"></p>
           <div class="seg">
             <button id="game-next" style="display:none;">次の問題へ</button>
@@ -592,6 +605,24 @@ var gExplain = document.getElementById("game-explain");
 var gStatus = document.getElementById("game-status");
 var gNext = document.getElementById("game-next");
 var gCountBtn = document.getElementById("game-count");
+var gMode = "choices";
+var gFree = document.getElementById("game-free");
+var gFreeSlider = document.getElementById("game-free-slider");
+var gFreeVal = document.getElementById("game-free-val");
+var gFreeBtn = document.getElementById("game-free-answer");
+function gApplyMode(){
+  document.querySelectorAll("#game-mode-seg button").forEach(function(b){
+    b.setAttribute("aria-pressed", b.getAttribute("data-mode") === gMode ? "true" : "false");
+  });
+  var fin = (gPhase === "finished");
+  gChoices.style.display = (!fin && gMode === "choices") ? "" : "none";
+  gFree.style.display = (!fin && gMode === "slider") ? "" : "none";
+}
+document.querySelectorAll("#game-mode-seg button").forEach(function(b){
+  b.addEventListener("click", function(){ gMode = b.getAttribute("data-mode"); gApplyMode(); });
+});
+gFreeSlider.addEventListener("input", function(){ gFreeVal.textContent = gFreeSlider.value; });
+gFreeBtn.addEventListener("click", function(){ gAnswerFree(); });
 
 function gRestartDrop(interval){
   gDripper.clear();
@@ -626,21 +657,19 @@ function gNewRound(){
     b.addEventListener("click", function(){ gAnswer(v, b); });
     gChoices.appendChild(b);
   });
+  gFreeSlider.disabled = false; gFreeBtn.disabled = false;
+  gFreeSlider.value = 100; gFreeVal.textContent = "100";
+  gApplyMode();
 }
-function gAnswer(v, btn){
-  if (gPhase !== "playing" && gPhase !== "counting") return;
+function gFinish(ok, head){
   if (gTimerId) { clearInterval(gTimerId); gTimerId = null; }
   document.getElementById("game-timer").textContent = "";
   gCountBtn.disabled = true;
+  gChoices.querySelectorAll("button").forEach(function(x){ x.disabled = true; });
+  gFreeSlider.disabled = true; gFreeBtn.disabled = true;
   var c = calc(gRate, GAME_FACTOR);
-  var ok = (v === gRate);
   if (ok) gScore++;
-  gChoices.querySelectorAll("button").forEach(function(x){
-    x.disabled = true;
-    if (x.textContent === gRate + " mL/h") x.classList.add("correct");
-  });
-  if (!ok) btn.classList.add("wrong");
-  gExplain.textContent = (ok ? "正解！ " : "不正解。") +
+  gExplain.textContent = head +
     "正解は " + gRate + " mL/h。" + gRate + " × 20 ÷ 60 ＝ " + fmt(c.dpm, 1) + " 滴/分、1滴の間隔は約 " +
     fmt(c.interval, 1) + " 秒、15秒では約 " + Math.round(c.count15) + " 滴でした。";
   gExplain.className = "explain show";
@@ -649,6 +678,24 @@ function gAnswer(v, btn){
   gNext.textContent = (gRound >= GAME_ROUNDS) ? "結果を見る" : "次の問題へ";
   gNext.style.display = "";
   gPhase = "answered";
+}
+function gAnswer(v, btn){
+  if (gPhase !== "playing" && gPhase !== "counting") return;
+  var ok = (v === gRate);
+  gChoices.querySelectorAll("button").forEach(function(x){
+    if (x.textContent === gRate + " mL/h") x.classList.add("correct");
+  });
+  if (!ok && btn) btn.classList.add("wrong");
+  gFinish(ok, ok ? "正解！ " : "不正解。");
+}
+function gAnswerFree(){
+  if (gPhase !== "playing" && gPhase !== "counting") return;
+  var v = +gFreeSlider.value;
+  var err = Math.abs(v - gRate) / gRate * 100;
+  var ok = err <= 10;
+  var head = ok ? "正解！ " : (err <= 20 ? "惜しい！ " : "不正解。");
+  head += "あなたの回答は " + v + " mL/h（誤差 " + fmt(err, err < 10 ? 1 : 0) + "%）。";
+  gFinish(ok, head);
 }
 gCountBtn.addEventListener("click", function(){
   if (gPhase !== "playing") return;
@@ -681,6 +728,7 @@ gNext.addEventListener("click", function(){
     gDripper.stop();
     gDripper.clear();
     gChoices.innerHTML = "";
+    gChoices.style.display = "none"; gFree.style.display = "none";
     gNext.style.display = "none";
     gExplain.className = "explain"; gExplain.textContent = "";
     document.getElementById("game-round").textContent = "終了";
