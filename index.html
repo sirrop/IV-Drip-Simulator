@@ -91,6 +91,12 @@
   .game-play { min-width:0; }
   .game-play .seg { margin-top:0; }
   .game-details { grid-column:1 / -1; border-top:1px solid var(--line); padding-top:8px; }
+  /* タップ測定：滴下筒とタップボタンを横並びにして距離を縮める */
+  .tap-layout { display:grid; grid-template-columns:110px minmax(0, 1fr); gap:16px; align-items:start; }
+  .tap-layout .chamber { margin:0; }
+  .tap-play { min-width:0; }
+  .tap-play > p:first-child { margin-top:0; }
+  .tap-details { grid-column:1 / -1; border-top:1px solid var(--line); padding-top:8px; }
   .hint-box { background:var(--accent-soft); border-radius:10px; padding:10px 12px; margin:8px 0; }
   .hint-box p { margin:4px 0; font-size:13px; }
   /* クリア演出 */
@@ -124,6 +130,12 @@
     .clamp-start-btn { padding:8px 10px; font-size:13px; }
     .clamp-actions button { flex:1; }
     .clamp-details { padding-top:6px; }
+    .tap-layout { grid-template-columns:84px minmax(0, 1fr); gap:10px; }
+    .tap-layout .chamber { width:84px; }
+    .tap-play .seg { gap:6px; }
+    .tap-play .seg button { padding:8px 9px; font-size:13px; }
+    .tap-play .tap-btn { padding:18px 8px; font-size:17px; }
+    .tap-details { padding-top:6px; }
   }
   .compare { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   /* スマホでも2つを横に並べて同時に見られるよう、比較専用の小型レイアウトにする */
@@ -420,16 +432,15 @@
   <!-- ============ タップ測定 ============ -->
   <section class="panel" id="tab-tap">
     <div class="card">
-      <div class="chamber-wrap">
+      <h2>タップ測定 — リズムから速度を逆算</h2>
+      <div class="tap-layout">
         <div class="chamber">
           <div class="tube" id="tap-tube">
             <div class="fluid"></div>
           </div>
           <div class="cap">推定リズム（アニメーション）</div>
         </div>
-        <div style="flex:1; min-width:240px;">
-          <h2>タップ測定 — リズムから速度を逆算</h2>
-          <p>実際の滴下筒を見ながら、<strong>滴が落ちるたびにボタン</strong>をタップしてください。タップ間隔から滴下速度を推定し、隣の滴下筒が「最後のタップを1滴目」としてその推定リズムで落ちるので、見た目でも確認できます。</p>
+        <div class="tap-play">
           <p><strong>滴下係数</strong></p>
           <div class="seg" id="tap-factor-seg">
             <button data-factor="10" aria-pressed="false">10滴/mL</button>
@@ -437,6 +448,11 @@
             <button data-factor="20" aria-pressed="true">20滴/mL</button>
             <button data-factor="60" aria-pressed="false">60滴/mL</button>
           </div>
+          <button class="tap-btn" id="tap-btn">滴に合わせてタップ</button>
+          <p class="muted" id="tap-note">滴が落ちるたびにボタンをタップしてください。3回目から推定が出ます。</p>
+        </div>
+        <div class="tap-details">
+          <p>実際の滴下筒を見ながら、<strong>滴が落ちるたびにボタン</strong>をタップしてください。タップ間隔から滴下速度を推定し、隣の滴下筒が「最後のタップを1滴目」としてその推定リズムで落ちるので、見た目でも確認できます。</p>
           <p><strong>計算に使うタップ</strong></p>
           <div class="seg" id="tap-window-seg">
             <button data-window="5" aria-pressed="false">直近5回</button>
@@ -444,14 +460,12 @@
             <button data-window="20" aria-pressed="false">直近20回</button>
             <button data-window="0" aria-pressed="false">すべて</button>
           </div>
-          <button class="tap-btn" id="tap-btn">滴に合わせてタップ</button>
           <div class="readouts">
             <div class="readout"><div class="v" id="tap-count">0 回</div><div class="l">タップ回数</div></div>
             <div class="readout"><div class="v" id="tap-interval">—</div><div class="l">1滴の間隔（中央値）</div></div>
             <div class="readout"><div class="v" id="tap-dpm">—</div><div class="l">滴/分</div></div>
             <div class="readout"><div class="v" id="tap-rate">—</div><div class="l">推定の輸液速度（mL/h）</div></div>
           </div>
-          <p class="muted" id="tap-note">滴が落ちるたびにボタンをタップしてください。3回目から推定が出ます。</p>
           <div class="seg"><button id="tap-reset">リセット</button></div>
           <p class="muted">6秒以上間隔が空くと、自動で最初から数え直します。間隔は外れ値に強い中央値で計算します。</p>
         </div>
