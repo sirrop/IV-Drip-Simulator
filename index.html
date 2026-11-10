@@ -91,6 +91,8 @@
   .game-play { min-width:0; }
   .game-play .seg { margin-top:0; }
   .game-details { grid-column:1 / -1; border-top:1px solid var(--line); padding-top:8px; }
+  .hint-box { background:var(--accent-soft); border-radius:10px; padding:10px 12px; margin:8px 0; }
+  .hint-box p { margin:4px 0; font-size:13px; }
   @media (max-width:560px) {
     .game-layout { grid-template-columns:84px minmax(0, 1fr); gap:10px; }
     .game-layout .chamber { width:84px; }
@@ -322,6 +324,13 @@
           <div class="seg game-main-seg">
             <button id="game-start">ゲームスタート</button>
             <button id="game-count" disabled>15秒カウント</button>
+          </div>
+          <div class="seg">
+            <button id="game-hint-btn" aria-expanded="false">ヒント：1秒に1滴は？</button>
+          </div>
+          <div class="hint-box" id="game-hint" style="display:none;">
+            <p><strong>1秒に1滴 ＝ 180 mL/h</strong>（20滴/mL）</p>
+            <p class="muted">間隔が2倍になれば速度は半分になります。2秒に1滴＝90 mL/h、3秒に1滴＝60 mL/h、4秒に1滴＝45 mL/h、5秒に1滴＝36 mL/h。逆に0.5秒に1滴なら360 mL/hです。</p>
           </div>
           <p id="game-status" style="font-weight:700;">「ゲームスタート」を押すと滴下が始まります。</p>
           <div class="choices" id="game-choices"></div>
@@ -640,6 +649,14 @@ document.querySelectorAll("#game-mode-seg button").forEach(function(b){
 });
 gFreeSlider.addEventListener("input", function(){ gFreeVal.textContent = gFreeSlider.value; });
 gFreeBtn.addEventListener("click", function(){ gAnswerFree(); });
+var gHintBtn = document.getElementById("game-hint-btn");
+var gHint = document.getElementById("game-hint");
+gHintBtn.addEventListener("click", function(){
+  var open = gHint.style.display !== "none";
+  gHint.style.display = open ? "none" : "";
+  gHintBtn.setAttribute("aria-expanded", open ? "false" : "true");
+  gHintBtn.textContent = open ? "ヒント：1秒に1滴は？" : "ヒントを閉じる";
+});
 
 function gRestartDrop(interval){
   gDripper.clear();
