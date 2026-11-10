@@ -225,6 +225,13 @@
             <button data-factor="20" aria-pressed="true">20滴/mL</button>
             <button data-factor="60" aria-pressed="false">60滴/mL</button>
           </div>
+          <p><strong>計算に使うタップ</strong></p>
+          <div class="seg" id="tap-window-seg">
+            <button data-window="5" aria-pressed="false">直近5回</button>
+            <button data-window="10" aria-pressed="true">直近10回</button>
+            <button data-window="20" aria-pressed="false">直近20回</button>
+            <button data-window="0" aria-pressed="false">すべて</button>
+          </div>
           <button class="tap-btn" id="tap-btn">滴に合わせてタップ</button>
           <div class="readouts">
             <div class="readout"><div class="v" id="tap-count">0 回</div><div class="l">タップ回数</div></div>
@@ -506,22 +513,24 @@ gNext.addEventListener("click", function(){
 });
 
 /* ---- タップ測定：タップ間隔（中央値）から速度を逆算 ---- */
-var tapFactor = 20, tapTimes = [], tapStarted = false;
+var tapFactor = 20, tapTimes = [], tapStarted = false, tapWindow = 10;
 var tapDripper = createDripper(document.getElementById("tap-tube"), null);
 function renderTap(anchor){
-  var n = tapTimes.length;
-  document.getElementById("tap-count").textContent = n + " 回";
+  var total = tapTimes.length;
+  var use = tapWindow > 0 ? tapTimes.slice(-tapWindow) : tapTimes.slice();
+  var n = use.length;
+  document.getElementById("tap-count").textContent = total + " 回";
   if (n < 3) {
     document.getElementById("tap-interval").textContent = "—";
     document.getElementById("tap-dpm").textContent = "—";
     document.getElementById("tap-rate").textContent = "—";
-    document.getElementById("tap-note").textContent = n === 0
+    document.getElementById("tap-note").textContent = total === 0
       ? "滴が落ちるたびにボタンをタップしてください。3回目から推定が出ます。"
       : "あと " + (3 - n) + " 回タップすると推定が出ます。";
     return;
   }
   var ivs = [];
-  for (var i = 1; i < n; i++) ivs.push((tapTimes[i] - tapTimes[i - 1]) / 1000);
+  for (var i = 1; i < n; i++) ivs.push((use[i] - use[i - 1]) / 1000);
   var sorted = ivs.slice().sort(function(a, b){ return a - b; });
   var mid = Math.floor(sorted.length / 2);
   var med = (sorted.length % 2 === 1) ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
@@ -531,7 +540,10 @@ function renderTap(anchor){
   document.getElementById("tap-dpm").textContent = fmt(dpm, 1);
   document.getElementById("tap-rate").textContent = fmt(rateEst, 0);
   document.getElementById("tap-note").textContent =
-    "直近 " + ivs.length + " 回分の間隔の中央値から計算しています。隣の滴下筒は、最後のタップを1滴目として推定リズムで滴下中です。見比べてみてください。";
+    (total > n
+      ? "直近 " + n + " 回のタップ（間隔 " + ivs.length + " 回分）の中央値から計算しています。それ以前のタップは含みません。"
+      : "間隔 " + ivs.length + " 回分の中央値から計算しています。")
+    + "隣の滴下筒は、最後のタップを1滴目として推定リズムで滴下中です。見比べてみてください。";
   if (anchor) { tapDripper.clear(); tapDripper.start(med); tapStarted = true; }
   else { tapDripper.update(med); }
 }
@@ -539,8 +551,14 @@ document.getElementById("tap-btn").addEventListener("click", function(){
   var now = performance.now();
   if (tapTimes.length && (now - tapTimes[tapTimes.length - 1]) > 6000) tapTimes = [];
   tapTimes.push(now);
-  if (tapTimes.length > 30) tapTimes.shift();
+  if (tapTimes.length > 100) tapTimes.shift();
   renderTap(true);
+});
+document.getElementById("tap-window-seg").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if (!b) return;
+  tapWindow = +b.dataset.window;
+  document.querySelectorAll("#tap-window-seg button").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+  renderTap();
 });
 document.getElementById("tap-factor-seg").addEventListener("click", function(e){
   var b = e.target.closest("button"); if (!b) return;
