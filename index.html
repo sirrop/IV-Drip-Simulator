@@ -385,6 +385,13 @@
             <button id="clamp-count" disabled>15秒カウント</button>
             <button id="clamp-decide" disabled>これで決定</button>
           </div>
+          <div class="seg">
+            <button id="clamp-hint-btn" aria-expanded="false">ヒント：1秒に1滴は？</button>
+          </div>
+          <div class="hint-box" id="clamp-hint" style="display:none;">
+            <p id="clamp-hint-main"><strong>1秒に1滴 ＝ 180 mL/h</strong>（20滴/mL）</p>
+            <p class="muted">間隔が2倍になれば速度は半分になります。2秒に1滴＝90 mL/h、3秒に1滴＝60 mL/h、4秒に1滴＝45 mL/h、5秒に1滴＝36 mL/h。逆に0.5秒に1滴なら360 mL/hです。</p>
+          </div>
           <p class="muted" id="clamp-count-result"></p>
           <p id="clamp-feedback" style="font-weight:700;"></p>
           <canvas id="clamp-graph" width="300" height="180" style="display:none; max-width:100%; background:#fff; border:1px solid var(--line); border-radius:10px;"></canvas>
@@ -823,6 +830,24 @@ function clampScoreText(){
     line.textContent = "スコア：" + clampScore + " / 3問（誤差10%以内で成功）";
   }
 }
+function clampHintUpdate(){
+  var el = document.getElementById("clamp-hint-main");
+  if (!el) return;
+  if (clampTarget > 0) {
+    var c = calc(clampTarget, 20);
+    el.innerHTML = "目標 " + clampTarget + " mL/h ＝ 約 <strong>" + fmt(c.interval, 1) + " 秒に1滴</strong>（15秒で約 " + Math.round(c.count15) + " 滴）";
+  } else {
+    el.innerHTML = "<strong>1秒に1滴 ＝ 180 mL/h</strong>（20滴/mL）";
+  }
+}
+var clampHintBtn = document.getElementById("clamp-hint-btn");
+var clampHint = document.getElementById("clamp-hint");
+clampHintBtn.addEventListener("click", function(){
+  var open = clampHint.style.display !== "none";
+  clampHint.style.display = open ? "none" : "";
+  clampHintBtn.setAttribute("aria-expanded", open ? "false" : "true");
+  clampHintBtn.textContent = open ? "ヒント：1秒に1滴は？" : "ヒントを閉じる";
+});
 function clampSetupTurn(player){
   clampPlayer = player;
   clampToken++;
@@ -842,6 +867,7 @@ function clampSetupTurn(player){
   document.getElementById("clamp-count").disabled = false;
   document.getElementById("clamp-decide").disabled = false;
   clampApply();
+  clampHintUpdate();
 }
 function clampNext(){
   clampRound++;
@@ -869,6 +895,7 @@ function clampReset(){
   document.getElementById("clamp-decide").disabled = true;
   document.getElementById("clamp-start").textContent = "ゲームスタート";
   clampScoreText();
+  clampHintUpdate();
 }
 function drawClampGraph(points){
   var cv = document.getElementById("clamp-graph");
